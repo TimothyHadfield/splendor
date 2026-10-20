@@ -13,3 +13,9 @@
 - **Built:** all of the above (`js/app.js`, `index.html`), plus "You has a city" → "You have a city". City tiles compared by script: all 14 match lecodex XML + hexanome JSON + CSV and the rulebook's 3 examples (docs/rules-check.md).
 - **Verified:** 25 + 6 tests, mutants 9/9, `sp-fix.mjs` 36/36 (320/375/393 px, 10 corrupt-save variants, nav, cover), e2e phone + desktop Cities 4-player clean, two-browser online room on real Firebase finished with 0 errors and B's Study shows the points race.
 - **Open:** real iPhone; two real devices online.
+
+## 2026-10-20 — visual design pass
+- **Asked** (manager): "once you're finished with all the games, review them again for design improvements especially visually… Don't come to me when you're done, just start working."
+- **Built:** laptop board layout (nobles | market | bank columns), reserved-card panel collapse fix, card art shading, new card backs, deck count pill, turns badge rework, ring-not-lift selection, disabled-button look, "Your turn" colour, dark sort dropdown, Study empty dashes, results sheet only on Play (`index.html`, `js/app.js`, `js/art.js`).
+- **Verified:** 25 + 6 tests; phone-view WebKit at 393x659 and 1440x900 for setup, 2p, 2p with reserved cards, 4p, Cities 3p, card selected, gems picked, game over, Cards, Study, Settings: 0 console errors, no overflow, page height = screen height in all 22; Chrome flow: Deal, take 3 gems, turn passes.
+- **Open:** real iPhone look.

@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes).
+Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -20,6 +20,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 | Study tab: % matched Hard, points lost, points race, per-move table | Done. Online games now feed the points race too. |
 | Online rooms (shared `_online` module, Firebase `th-board-games`, gameId `splendor`) | Done. 6 online tests + a two-browser Chromium room on real Firebase (3 seats incl. a computer, 60 taps, both reloads, blind reserve hidden, 0 errors). |
 | QA fixes (10-20) | Held gems no longer overlap at 320/375/393 (any gem tappable when returning); 4-player chips 2×2 with names at ≤430 px; Deal visible at 320×568; corrupt/old saves are dropped instead of blanking (try/catch render + deep save check); JSON-array save fixed; Back closes a sheet first; hash nav; 4th colour tap explains; "Pick N more" count right; pass-the-phone cover between friends. Checked by `scratchpad/sp-fix.mjs` 36/36. |
+| Visual design pass (10-20) | Laptop board = nobles column, market, bank column, centred (cards ~20% bigger); fixed a reserved card collapsing your gem panel (phone + laptop); card cost shade + header sheen; patterned card backs; turns badge inside the corner (✓ solid green, out of reach = small ring); gem/card picks ring instead of lifting; dark sort dropdown; Study dashes when no moves; results sheet only on Play. Before/after shots of 11 states x 2 widths in the manager scratchpad `design/splendor/`. |
 | Screens at 393 px (WebKit + Chromium) and 1440 px | Done: every tab, a full game with a reload mid-game, Cities 3-player game; no console errors, no overflow, no page scroll. |
 
 ## Standing instructions (Tim's words)
@@ -36,7 +37,8 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
   phone-view `click:` steps can time out under load; `--eval "document.querySelector(...).click()"` works.
 - createLocal runs computers on a timer: tests must wait for `snap.myTurn` before acting.
 - CSS class clashes found once: the SVG gem chip is `.gchip` (not `.chip`), log rows are `.mine` (not `.me`).
-- `fitMarket()` sets `--ch` (card height) from the row height AND the width; without it cards overflow late-game.
+- `fitMarket()` sets `--ch` (card height) from the row height AND the width; without it cards overflow late-game. On the laptop the market column is `auto`, so fitMarket measures the room from `#game` minus side panel, nobles and bank (not the market's own width).
+- Card SVGs inside `.slot` are `position:absolute`: an SVG's intrinsic 300px width otherwise inflates the slot and squeezes the gem panel when you hold a reserved card.
 - No build step: bump `?v=` in index.html when a JS file changes.
 - Local test server used port 8473.
 
