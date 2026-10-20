@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass).
+Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -21,6 +21,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 | Online rooms (shared `_online` module, Firebase `th-board-games`, gameId `splendor`) | Done. 6 online tests + a two-browser Chromium room on real Firebase (3 seats incl. a computer, 60 taps, both reloads, blind reserve hidden, 0 errors). |
 | QA fixes (10-20) | Held gems no longer overlap at 320/375/393 (any gem tappable when returning); 4-player chips 2×2 with names at ≤430 px; Deal visible at 320×568; corrupt/old saves are dropped instead of blanking (try/catch render + deep save check); JSON-array save fixed; Back closes a sheet first; hash nav; 4th colour tap explains; "Pick N more" count right; pass-the-phone cover between friends. Checked by `scratchpad/sp-fix.mjs` 36/36. |
 | Visual design pass (10-20) | Laptop board = nobles column, market, bank column, centred (cards ~20% bigger); fixed a reserved card collapsing your gem panel (phone + laptop); card cost shade + header sheen; patterned card backs; turns badge inside the corner (✓ solid green, out of reach = small ring); gem/card picks ring instead of lifting; dark sort dropdown; Study dashes when no moves; results sheet only on Play. Before/after shots of 11 states x 2 widths in the manager scratchpad `design/splendor/`. |
+| Sound & effects (10-20) | Shared `js/fx.js` (byte copy of `../_fx/fx.js`) + game-local `js/sfx.js` (pure: before/after view -> events, so local, computer and online moves all sound the same). Settings tab has a "Sound & effects" panel (8 rows, styled like the page's own switches). `node tests/fx.test.js` 13 tests (12 real games; failed before sfx.js existed). Headless Chromium e2e (`scratchpad/sp-fx-e2e.mjs`): full game through taps, Sound off = 0 played, Animations off = 0 flyers / 0 running animations, 0 console errors. |
 | Screens at 393 px (WebKit + Chromium) and 1440 px | Done: every tab, a full game with a reload mid-game, Cities 3-player game; no console errors, no overflow, no page scroll. |
 
 ## Standing instructions (Tim's words)
@@ -28,10 +29,13 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - "build regular play online with a computer or other online players for all the games and their common varients that match exactly the play of the in-person game."
 - "Really work on the webdesign of the games, aswell as art, fitting it with an iphone and computer"
 - "make sure that everything works properlly without errors or whatnot... Make sure to get everything right like rules and artwork and specific numbers of cards"
+- "add opptional sounds you can add to the games that reflect what's happening in the game accurately as well as win celebrations, and other fun annimations to go along with everything. Just make sure everything is customizable in the settings so the user can play as preffered." (2026-10-20)
 - Common brief: $0, no copyrighted art or rulebook text, no page scroll on main screens, bottom tabs on phone, "?" explains why, choices in Settings.
 
 ## Traps
-- `js/online.js` is a COPY of `../_online/online.js`. Never edit it here.
+- `js/online.js` is a COPY of `../_online/online.js`. Never edit it here. Same for `js/fx.js` (copy of `../_fx/fx.js`).
+- fx.js's injected switch/seg styles beat the page's (same specificity, injected later): `#fx-panel` rules in index.html restyle them.
+- python http.server sometimes refuses a file under Chrome load; the e2e script reloads once.
 - Headless **WebKit on Windows is ~50x slower than Chromium** (no JIT): a full game through UI taps times out. Use
   Chromium with mobile emulation (393×659, touch) for long e2e runs; keep WebKit (phone-view) for screenshots.
   phone-view `click:` steps can time out under load; `--eval "document.querySelector(...).click()"` works.
@@ -41,6 +45,23 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Card SVGs inside `.slot` are `position:absolute`: an SVG's intrinsic 300px width otherwise inflates the slot and squeezes the gem panel when you hold a reserved card.
 - No build step: bump `?v=` in index.html when a JS file changes.
 - Local test server used port 8473.
+
+## Event -> sound map (js/sfx.js; others' moves at 0.8 volume)
+| Event | Sound | Effect |
+|---|---|---|
+| Take 3 / take 2 | `chip` per gem, 70 ms apart, rising pitch | each gem glides bank -> you / their chip |
+| Reserve (table / blind deck) | `cardSlide` / `cardDeal`; `coin` if gold taken | card flies to you |
+| Buy | `cardSlide`; `chips` if you paid gems | card flies to you, paid gems glide back to the bank |
+| New card dealt into the gap | `cardFlip` | existing deal-in animation |
+| Gems returned over 10 | `chips` | gems glide back to the bank |
+| Points gained | - | score counts up, "+N" floats |
+| Noble visit / city taken | `celebrate big` (ding + star sparkles) | holder's box pops |
+| Final round starts (15 pts) | `alarm` | "Final round" label pulses |
+| Turn comes back to you | `turn` | your area flashes blue |
+| Illegal tap (not your turn, gold, empty colour, 4th gem) | `error` | tapped thing shakes |
+| Deal / online game starts | `shuffle` | - |
+| Game over | `celebrate win` (seat colours) / `lose` | own result per player online; hot-seat: any human winning = win |
+| Any button | `tap` (fx.js auto) | - |
 
 ## Decisions
 - Card list = bouk/splendimax + mcandocia/splendor_ai (agree exactly); filipmlynarski rejected (2 cards differ).
@@ -54,7 +75,9 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Short screens (height ≤620) hide the 3 demo cards on setup so Deal stays above the tab bar.
 
 ## NOT verified
-- Real iPhone (only Safari's engine at iPhone size).
+- Real iPhone (only Safari's engine at iPhone size). Sounds never heard by a person (headless only; Web Audio ran in Chromium).
+- fx in an online room with two browsers (online sounds come from the same view diff, tested in node only).
+- Pre-existing: in WebKit a flying card shows stray cost digits mid-flight (same before this change).
 - Which two city sides share one physical tile: one data source only.
 - Online room across two real devices (two headless browsers only).
 - City tile numbers: match the rulebook's 3 printed examples + 3 data sets (lecodex, hexanome JSON, CSV); not checked against a physical tile.

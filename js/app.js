@@ -14,6 +14,20 @@
   const LEVEL_NOTE = { easy: 'Grabs gems', medium: 'Chases points', hard: 'Plans ahead' };
   const BOT_MS = 750;
 
+  // ------------------------------------------------------------------ sound & effects (shared fx.js; switches in Settings)
+  const FX = window.FX;
+  FX.init({ game: 'splendor', accent: '#6ea8fe' });
+  const anim = () => FX.settings.animations;
+  const spd = () => (FX.settings.animSpeed === 'fast' ? 0.5 : 1);
+  function fxClasses() {
+    document.body.classList.toggle('fx-still', !anim());
+    document.body.classList.toggle('fx-fast', anim() && FX.settings.animSpeed === 'fast');
+  }
+  fxClasses();
+  FX.onChange(fxClasses);
+  // an illegal tap: message + soft error sound + a little shake of what was tapped
+  function nope(msg, el) { toast(msg); FX.play('error'); if (el) FX.shake(el); }
+
   // ------------------------------------------------------------------ storage (try/catch: private mode etc.)
   const KEY = 'splendor.v1';
   let store;
@@ -111,7 +125,10 @@
     net.snap = snap;
     if (net.busy && snap.v !== net.sentV) unbusy();
     if (snap.status === 'playing' || snap.status === 'finished') {
-      if (!table || !table.online) { table = new OnlineTable(net.room); resetSel(); ui.prev = null; net.savedLast = false; ui.study = { rec: [], race: [] }; }
+      if (!table || !table.online) {
+        table = new OnlineTable(net.room); resetSel(); ui.prev = null; net.savedLast = false; ui.study = { rec: [], race: [] };
+        if (snap.status === 'playing') FX.play('shuffle');
+      }
       table.snap = snap;
       try { // points race for the Study tab, one point per finished turn
         const v = snap.pub ? SpOnlineGame.viewFromSnap(snap) : null;
@@ -378,6 +395,7 @@
     table = new LocalTable(store.game);
     resetSel(); ui.prev = null; ui.shownSeat = 0;
     save();
+    FX.play('shuffle');
     renderPlay();
   }
 
@@ -398,7 +416,7 @@
       return;
     }
     try { table.g.state = E.apply(table.g.state, seat, action); }
-    catch (e) { toast(e.message); return; }
+    catch (e) { nope(e.message); return; }
     table.g.lastHuman = seat;
     afterLocalMove();
   }
@@ -454,7 +472,9 @@
     // friends sharing one phone: cover the table until the next friend is holding it (blind reserves stay secret)
     if (!table.online && !v.over && table.g.kinds.filter(k => k === 'human').length > 1 &&
       table.g.kinds[v.turn] === 'human' && ui.shownSeat !== v.turn) {
-      ui.prev = null;
+      // the move that just ended still sounds (seen from the friend who made it); the table is covered, so no visuals
+      if (ui.prev && ui.prevSeat != null) sfx(ui.prev, table.view(ui.prevSeat), ui.prevSeat, ui.wasMy, false, false);
+      ui.prev = null; ui.wasMy = false;
       vPlay.innerHTML = '<div class="setup" style="justify-content:center"><div class="panel" style="align-items:center;text-align:center;gap:12px">' +
         '<span class="label">Pass the phone to</span><b style="font-size:24px">' + esc(v.players[v.turn].name) + '</b>' +
         '<p class="muted small" style="margin:0">Only they should look: their reserved cards show next.</p>' +
@@ -548,8 +568,10 @@
     vPlay.innerHTML = '<div id="game">' + status + nobles + market + bank + meBox + acts + side + '</div>';
     fitMarket();
     const lb = $('#logbox'); if (lb) lb.scrollTop = lb.scrollHeight;
-    if (prev) animateMove(prev, v, before, seat);
-    ui.prev = v;
+    // "your turn" for the chime ignores the brief "Sending…" moment online
+    const myTurn = !v.over && v.turn === seat && (table.online ? !!table.snap.myTurn : table.g.kinds[v.turn] === 'human');
+    if (prev) { animateMove(prev, v, before, seat); sfx(prev, v, seat, ui.wasMy, myTurn, ui.tab === 'play'); }
+    ui.prev = v; ui.prevSeat = seat; ui.wasMy = myTurn;
     scheduleBot();
     if (v.over && !ui.endShown) { ui.endShown = true; setTimeout(() => { if (ui.tab === 'play') showEnd(v, seat); else ui.endShown = false; }, 900); }
     if (!v.over) ui.endShown = false;
@@ -650,33 +672,81 @@
   // ------------------------------------------------------------------ motion: cards and gems travel
   function captureRects() {
     const r = {};
-    vPlay.querySelectorAll('[data-card], [data-tok], .chip[data-player], #me-box, [data-deck]').forEach(el => { r[el.id || ('d' + el.dataset.deck)] = { rect: el.getBoundingClientRect(), html: el.innerHTML }; });
+    vPlay.querySelectorAll('[data-card], [data-tok], .chip[data-player], #me-box, [data-deck], .htok').forEach(el => { r[el.id || ('d' + el.dataset.deck)] = { rect: el.getBoundingClientRect(), html: el.innerHTML }; });
     return r;
   }
-  function fly(fromRect, toEl, html, w) {
-    if (!fromRect || !toEl || !document.body.animate) return;
+  // Animations off = nothing flies; Fast = half the time
+  function fly(fromRect, toEl, html, w, h) {
+    if (!fromRect || !toEl || !document.body.animate || !anim()) return;
     const to = toEl.getBoundingClientRect();
     const f = document.createElement('div');
     f.className = 'flyer'; f.innerHTML = html;
-    const W = w || fromRect.width, H = w ? w * fromRect.height / fromRect.width : fromRect.height;
-    Object.assign(f.style, { left: fromRect.left + 'px', top: fromRect.top + 'px', width: W + 'px', height: H + 'px' });
+    const W = w || fromRect.width, H = h || (w ? w * fromRect.height / fromRect.width : fromRect.height);
+    const x0 = fromRect.left + fromRect.width / 2 - W / 2, y0 = fromRect.top + fromRect.height / 2 - H / 2;
+    Object.assign(f.style, { left: x0 + 'px', top: y0 + 'px', width: W + 'px', height: H + 'px' });
     document.body.appendChild(f);
-    const dx = to.left + to.width / 2 - (fromRect.left + W / 2), dy = to.top + to.height / 2 - (fromRect.top + H / 2);
-    const a = f.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.45)', opacity: 0.2 }], { duration: 520, easing: 'cubic-bezier(.3,.7,.3,1)' });
+    const dx = to.left + to.width / 2 - (x0 + W / 2), dy = to.top + to.height / 2 - (y0 + H / 2);
+    const ms = Math.round(520 * spd());
+    const a = f.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.45)', opacity: 0.2 }], { duration: ms, easing: 'cubic-bezier(.3,.7,.3,1)' });
     a.onfinish = () => f.remove();
-    setTimeout(() => f.remove(), 900);
+    setTimeout(() => f.remove(), ms + 380);
   }
+  // one gem chip gliding (payments and returns go back to the bank)
+  const flyChip = (fromRect, k, toEl, delay) => setTimeout(() => fly(fromRect, toEl, Art.chip(k), 26, 26), delay);
   function animateMove(prev, v, before, seat) {
     const L = v.last;
     if (!L || v.turns === prev.turns && v.phase === prev.phase && JSON.stringify(v.bank) === JSON.stringify(prev.bank)) return;
+    if (!anim()) return;
     const who = L.seat;
     const target = who === seat ? $('#me-box') : $('#chip-' + who);
     if (!target) return;
-    if ((L.t === 'buy' || L.t === 'reserve') && L.id !== null && L.id !== undefined && before['c-' + L.id]) fly(before['c-' + L.id].rect, target, before['c-' + L.id].html);
-    else if (L.t === 'reserve' && L.deck && before['d' + L.deck]) fly(before['d' + L.deck].rect, target, before['d' + L.deck].html);
-    if ((L.t === 'take' || L.t === 'take2') && L.g && prev.turns !== v.turns || (L.t === 'take' || L.t === 'take2') && v.phase === 'discard' && prev.phase === 'main') {
-      L.g.forEach((k, i) => { const b = before['t-' + k]; if (b) setTimeout(() => fly(b.rect, target, b.html), i * 70); });
+    const sp = spd();
+    const fromOf = k => (who === seat && before['h-' + k] ? before['h-' + k] : before['chip-' + who] || before['me-box']);
+    if (prev.phase === 'main') {
+      if ((L.t === 'buy' || L.t === 'reserve') && L.id !== null && L.id !== undefined && before['c-' + L.id]) fly(before['c-' + L.id].rect, target, before['c-' + L.id].html);
+      else if (L.t === 'reserve' && L.deck && before['d' + L.deck]) fly(before['d' + L.deck].rect, target, before['d' + L.deck].html);
+      if (L.t === 'buy' && L.pay) { // the payment slides back to the bank, one chip per colour paid
+        let n = 0;
+        L.pay.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, (140 + n++ * 60) * sp); });
+      }
+      if ((L.t === 'take' || L.t === 'take2') && L.g) {
+        L.g.forEach((k, i) => { const b = before['t-' + k]; if (b) setTimeout(() => fly(b.rect, target, b.html), i * 70 * sp); });
+      }
     }
+    if (L.returned) { // gems over the 10 limit go back
+      let n = 0;
+      L.returned.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, ((prev.phase === 'main' ? 380 : 0) + n++ * 60) * sp); });
+    }
+  }
+
+  // sounds + the effects that go with them (sfx.js decides what happened; switches live in Settings)
+  function meSeats(seat) {
+    if (!table) return [seat];
+    if (table.online) return [table.snap.mySeat];
+    return table.g.kinds.map((k, i) => (k === 'human' ? i : -1)).filter(i => i >= 0);
+  }
+  const targetEl = (who, seat) => (who === seat ? $('#me-box') : $('#chip-' + who));
+  const scoreEls = (who, seat) => [who === seat ? $('#my-pts') : null, $('#chip-' + who + ' .pts')].filter(Boolean);
+  function sfx(prev, v, seat, myPrev, myNow, visuals) {
+    let list;
+    try { list = SpSfx.events(prev, v, seat, { meSeats: meSeats(seat), myPrev, myNow }); } catch (e) { return; }
+    if (!list.length) return;
+    // scores count up from the old number once the card lands
+    if (visuals && anim()) list.forEach(e => { if (e.fx === 'score') scoreEls(e.who, seat).forEach(el => { el.textContent = e.from; }); });
+    const live = () => visuals && ui.tab === 'play' && table;
+    SpSfx.run(list, FX, {
+      el: who => (live() ? targetEl(who, seat) : null),
+      colors: w => (Array.isArray(w) ? w.map(i => SEAT_COL[i]) : [SEAT_COL[w]]).concat(['#f0b354', '#e8eaf0', '#6ee7a8', '#f08c8c', '#b48cff']),
+      visual: e => {
+        if (!live()) return;
+        if (e.fx === 'score') {
+          scoreEls(e.who, seat).forEach(el => FX.countUp(el, e.from, e.to, { duration: 500 }));
+          const t = targetEl(e.who, seat); if (t) FX.floatText(t, '+' + (e.to - e.from), 'var(--accent-warm)');
+        } else if (e.fx === 'big') { const t = targetEl(e.who, seat); if (t) FX.pop(t); }
+        else if (e.fx === 'final') { const r = $('.nobles .rnd'); if (r) FX.pulse(r); }
+        else if (e.fx === 'turn') { const m = $('#me-box'); if (m) FX.flash(m, 'rgba(110,168,254,.5)'); }
+      },
+    });
   }
 
   // ------------------------------------------------------------------ input
@@ -709,7 +779,7 @@
     if (t.closest('[data-leave]')) { leaveOnline(); return; }
     const my = canAct(v) && v.turn === seat;
     if (!my) {
-      if (t.closest('[data-card], [data-tok], [data-deck]')) toast(v.over ? 'The game is over' : 'Not your turn yet');
+      { const hit = t.closest('[data-card], [data-tok], [data-deck]'); if (hit) nope(v.over ? 'The game is over' : 'Not your turn yet', hit); }
       return;
     }
     const me = v.players[seat];
@@ -742,15 +812,15 @@
     if (tok) {
       const k = Number(tok.dataset.tok);
       ui.sel = null; ui.hint = null;
-      if (k === 5) { toast('Gold comes only from reserving a card'); return; }
-      if (!v.bank[k]) { toast('No ' + COLW[k] + ' left'); return; }
+      if (k === 5) { nope('Gold comes only from reserving a card', tok); return; }
+      if (!v.bank[k]) { nope('No ' + COLW[k] + ' left', tok); return; }
       const has = ui.take.indexOf(k) >= 0;
       if (has && ui.take.length === 1) {
-        if (v.bank[k] >= 4) ui.take = [k, k]; else { toast('2 of a colour needs 4 left in the bank'); }
+        if (v.bank[k] >= 4) ui.take = [k, k]; else { nope('2 of a colour needs 4 left in the bank', tok); }
       } else if (has) ui.take.splice(ui.take.indexOf(k), 1);
       else if (ui.take.length === 2 && ui.take[0] === ui.take[1]) ui.take = [k];
       else if (ui.take.length < 3) ui.take.push(k);
-      else { toast('3 gems at most. Tap one you picked to put it back.'); return; }
+      else { nope('3 gems at most. Tap one you picked to put it back.', tok); return; }
       renderPlay(); return;
     }
     const cd = t.closest('[data-card]');
@@ -906,6 +976,7 @@
     const sw = (key, title, sub) => '<div class="setrow"><div class="grow"><b>' + title + '</b><span>' + sub + '</span></div><label class="switch"><input type="checkbox" data-sw="' + key + '"' + (s[key] ? ' checked' : '') + '><span></span></label></div>';
     vSet.innerHTML = '<div class="set scroll">' +
       '<div class="panel">' + sw('showTurns', 'Turns on cards', 'How many turns of gems each card is from you.') + sw('hints', 'Hint button', 'Shows what the Hard computer would do.') + '</div>' +
+      '<div class="panel" id="fx-panel"><span class="label">Sound & effects</span></div>' +
       '<div class="panel"><div class="setrow"><div class="grow"><b>Your name</b><span>Shown to friends online.</span></div><input class="txt" id="set-name" maxlength="20" style="max-width:170px" value="' + esc(s.name) + '" placeholder="Name"></div></div>' +
       '<div class="panel"><div class="row"><b class="grow">How strong are the computers?</b></div><p class="small muted" style="margin:6px 0 0">' + esc(strengthNote()) + '</p></div>' +
       '<details class="panel"><summary style="cursor:pointer;font-weight:650">How Splendor works</summary><p class="muted" style="margin:8px 0 0;font-size:13.5px">' +
@@ -913,6 +984,7 @@
       'Each card you own is a permanent gem discount of its colour. Hold 10 gems at most. A noble (3 points) visits at the end of your turn once your cards match it. ' +
       'Reaching 15 points triggers the last round; most points wins, ties go to fewer cards.</p></details>' +
       '<p class="ver">Splendor Lab · game facts only, original art · <a href="https://github.com/TimothyHadfield/splendor">source</a></p></div>';
+    FX.renderSettings($('#fx-panel'));
   }
   vSet.addEventListener('change', e => {
     const k = e.target.dataset && e.target.dataset.sw;

@@ -19,3 +19,9 @@
 - **Built:** laptop board layout (nobles | market | bank columns), reserved-card panel collapse fix, card art shading, new card backs, deck count pill, turns badge rework, ring-not-lift selection, disabled-button look, "Your turn" colour, dark sort dropdown, Study empty dashes, results sheet only on Play (`index.html`, `js/app.js`, `js/art.js`).
 - **Verified:** 25 + 6 tests; phone-view WebKit at 393x659 and 1440x900 for setup, 2p, 2p with reserved cards, 4p, Cities 3p, card selected, gems picked, game over, Cards, Study, Settings: 0 console errors, no overflow, page height = screen height in all 22; Chrome flow: Deal, take 3 gems, turn passes.
 - **Open:** real iPhone look.
+
+## 2026-10-20 — sound & effects
+- **Asked** (via the manager): "add opptional sounds ... win celebrations, and other fun annimations ... customizable in the settings". Ideas: gem clinks per chip, reserve with gold, card flies to tableau, noble fanfare = big, final round alert, winner.
+- **Built:** `js/fx.js` (shared copy), `js/sfx.js` (view diff -> events), hooks in `js/app.js` (sounds, payment/return gem glides, count-up + "+N", error shake, turn flash, Animations off/Fast obeyed by existing flyers and CSS animations), Sound & effects panel in Settings (`index.html` styles). Map in progress.md.
+- **Verified:** `tests/fx.test.js` 13/13 (failed first: no sfx.js), engine 25 + online 6; Chromium e2e full game through taps (sounds, chimes, noble fanfare, win/lose), Sound off 0 played, Animations off 0 flyers/animations; phone-view 393 + desktop of Settings, mid-game, win with confetti; 0 console errors, no overflow.
+- **Open:** hear it on a real iPhone; two-browser online fx.

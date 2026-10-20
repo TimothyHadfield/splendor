@@ -305,6 +305,24 @@
   .setrow { display: flex; align-items: center; gap: 10px; min-height: 48px; }
   .setrow .grow b { display: block; font-weight: 650; }
   .setrow .grow span { font-size: 12.5px; color: var(--muted); }
+  #fx-panel .fx-set { margin-top: 4px; }
+  /* the shared Sound & effects rows, dressed like this page's own switches and buttons */
+  #fx-panel .fx-row { border-top: 0; min-height: 48px; padding: 4px 0; }
+  #fx-panel .fx-lab { font-weight: 650; }
+  #fx-panel .switch { width: 48px; height: 28px; }
+  #fx-panel .switch span { background: #2f3548; border-radius: 14px; }
+  #fx-panel .switch span::after { width: 22px; height: 22px; }
+  #fx-panel .switch input:checked + span { background: var(--accent); }
+  #fx-panel .switch input:checked + span::after { transform: translateX(20px); }
+  #fx-panel .seg { background: none; border: 0; padding: 0; gap: 6px; }
+  #fx-panel .seg button { flex: none; min-height: 38px; padding: 4px 14px; background: var(--bg-soft); border: 1px solid var(--line); border-radius: 10px; color: var(--text); }
+  #fx-panel .seg button[aria-pressed="true"] { background: rgba(110,168,254,.14); border-color: var(--accent); color: var(--accent); }
+  #fx-panel .fx-test { min-height: 34px; border-radius: 8px; background: var(--card); }
+  /* Animations off: nothing moves; Fast: half the time */
+  .fx-still .deal, .fx-still .bump, .fx-still .sheet, .fx-still .sheet-back, .fx-still .toast { animation: none !important; }
+  .fx-still .nobles .noble.choose { animation: none; box-shadow: 0 0 0 2px rgba(110,231,168,.9); }
+  .fx-fast .deal, .fx-fast .bump { animation-duration: .18s; }
+  .fx-fast .sheet { animation-duration: .11s; }
   .ver { color: #59607a; font-size: 12px; text-align: center; }
   .ver a { color: #59607a; }
   @media (max-height: 700px) and (max-width: 899px) { .nobles { height: 40px; } .nobles .noble { width: 40px; height: 40px; } .me { height: 72px; } .res .slot { height: 58px; } }
@@ -331,6 +349,8 @@
 <script src="js/strength-data.js?v=1"></script>
 <script src="js/online-game.js?v=1"></script>
 <script src="js/art.js?v=2"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/fx.js?v=1"></script>
+<script src="js/sfx.js?v=1"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>
