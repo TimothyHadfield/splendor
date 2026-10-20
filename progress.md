@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA).
+Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -17,8 +17,9 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 | Computers Easy / Medium / Hard | Done, measured, 1,000 two-player games per pair: Hard beats Easy 93.2%, Medium 69.7%; Medium beats Easy 82.7%. Cities: 92.3 / 76.6 / 70.8%. |
 | Turns-to-afford badges, Hint ("what Hard would do and why") | Done. Turns-to-afford matches brute force on 300 cases. |
 | Cards tab: 90 cards sorted by points per gem / cheapest / win rate; nobles; 14 cities; measured notes | Done. First player wins 44.7% of Hard-vs-Hard games; 28.2 rounds average. |
-| Study tab: % matched Hard, points lost, points race, per-move table | Done (local games). |
-| Online rooms (shared `_online` module, Firebase `th-board-games`, gameId `splendor`) | Wired like Dominion. 6 online tests (createLocal room, secrecy, snapshot = engine view). Two-browser room test: see NOT verified / QA. |
+| Study tab: % matched Hard, points lost, points race, per-move table | Done. Online games now feed the points race too. |
+| Online rooms (shared `_online` module, Firebase `th-board-games`, gameId `splendor`) | Done. 6 online tests + a two-browser Chromium room on real Firebase (3 seats incl. a computer, 60 taps, both reloads, blind reserve hidden, 0 errors). |
+| QA fixes (10-20) | Held gems no longer overlap at 320/375/393 (any gem tappable when returning); 4-player chips 2×2 with names at ≤430 px; Deal visible at 320×568; corrupt/old saves are dropped instead of blanking (try/catch render + deep save check); JSON-array save fixed; Back closes a sheet first; hash nav; 4th colour tap explains; "Pick N more" count right; pass-the-phone cover between friends. Checked by `scratchpad/sp-fix.mjs` 36/36. |
 | Screens at 393 px (WebKit + Chromium) and 1440 px | Done: every tab, a full game with a reload mid-game, Cities 3-player game; no console errors, no overflow, no page scroll. |
 
 ## Standing instructions (Tim's words)
@@ -46,12 +47,15 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - First player random (rulebook: youngest).
 - Hard does not reserve to grab gold (measured worse: 58% vs baseline in tuning).
 - Strength is measured in 2-player games only.
-- Study records only local games (online games skip it).
+- Study's points race also records online games (from snapshots); move-by-move review stays local-only.
+- Pass-the-phone: a plain cover ("Pass the phone to X") before each friend's turn when 2+ humans share a device.
+- Short screens (height ≤620) hide the 3 demo cards on setup so Deal stays above the tab bar.
 
 ## NOT verified
 - Real iPhone (only Safari's engine at iPhone size).
 - Which two city sides share one physical tile: one data source only.
-- Online room across two real devices (see the QA result in chat.md for the two-browser run).
+- Online room across two real devices (two headless browsers only).
+- City tile numbers: match the rulebook's 3 printed examples + 3 data sets (lecodex, hexanome JSON, CSV); not checked against a physical tile.
 
 ## Rejected / parked
 - ~~Trading Posts, Strongholds, The Orient modules~~ parked: bigger rule sets, not asked for; data was found.

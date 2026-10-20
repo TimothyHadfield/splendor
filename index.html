@@ -137,9 +137,10 @@
   .me.turn { border-color: var(--accent-warm); }
   .holds { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; flex: 1; min-width: 0; }
   .hold { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
-  .bon { width: 26px; height: 30px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 850; font-size: 14px; border: 1.5px solid rgba(0,0,0,.4); }
+  .hold.ret { cursor: pointer; }
+  .bon { width: 100%; max-width: 26px; height: 30px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 850; font-size: 14px; border: 1.5px solid rgba(0,0,0,.4); }
   .bon.none { opacity: .25; }
-  .htok { position: relative; width: 30px; height: 30px; border: 0; background: none; padding: 0; cursor: default; }
+  .htok { position: relative; width: 100%; max-width: 30px; aspect-ratio: 1; height: auto; border: 0; background: none; padding: 0; cursor: default; }
   .htok svg.gchip { width: 100%; height: 100%; }
   .htok b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
   .htok.zero { opacity: .25; }
@@ -149,8 +150,16 @@
   .mine-info { display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 38px; font-size: 11px; color: #9fb6cf; line-height: 1.15; text-align: center; }
   .mine-info b { font-size: 20px; color: #fff; font-variant-numeric: tabular-nums; }
   .res { display: flex; gap: 4px; align-items: center; flex: none; }
-  .res .slot { height: 64px; }
-  .res .slot.empty { width: 46px; }
+  .res .slot { height: 56px; }
+  @media (max-width: 360px) {
+    .me { gap: 5px; padding: 5px; } .mine-info { min-width: 30px; } .res { gap: 3px; } .res .slot { height: 44px; }
+    .holds { gap: 2px; } .htok b { font-size: 11px; }
+  }
+  /* 4 players on a narrow phone: 2 x 2 status chips so names stay readable */
+  @media (max-width: 430px) {
+    .chips.many { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 5px; }
+    .chips.many .chip { height: 27px; }
+  }
 
   .acts { grid-area: acts; display: flex; gap: 7px; align-items: center; min-height: 46px; }
   .acts .say { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.25; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -167,7 +176,7 @@
     .nobles, .bank, .me, .acts { width: min(100%, 780px); justify-self: center; }
     .market { justify-self: center; }
     .me { height: 92px; }
-    .bon { width: 32px; height: 34px; } .htok { width: 36px; height: 36px; }
+    .bon { max-width: 32px; height: 34px; } .htok { max-width: 36px; }
     .res .slot { height: 80px; }
     #g-side { display: flex; grid-area: side; flex-direction: column; gap: 10px; min-height: 0; }
     #g-side .panel { padding: 10px 12px; }
@@ -220,6 +229,9 @@
   .demo-row { display: flex; gap: 6px; justify-content: center; }
   .demo-row svg.card { height: 74px; width: auto; filter: drop-shadow(0 3px 5px rgba(0,0,0,.5)); }
   .demo-row svg.gchip { width: 34px; height: 34px; align-self: flex-end; }
+  .seatrow > .grow { white-space: nowrap; }
+  /* short phones (iPhone SE): drop the decorative cards so Deal stays above the tab bar */
+  @media (max-height: 620px) { .demo-row { display: none; } .hero img { width: 38px; height: 38px; } .hero h1 { font-size: 21px; } }
 
   /* ---------------------------------------------- cards tab */
   .cwrap { flex: 1; min-height: 0; display: grid; gap: 10px; grid-template-rows: auto minmax(0, 1fr); }
@@ -271,7 +283,7 @@
   .ver { color: #59607a; font-size: 12px; text-align: center; }
   .ver a { color: #59607a; }
   @media (max-height: 700px) and (max-width: 899px) { .nobles { height: 40px; } .nobles .noble { width: 40px; height: 40px; } .me { height: 72px; } .res .slot { height: 58px; } }
-  @media (max-width: 360px) { .tok { width: 38px; height: 38px; } .bon { width: 22px; } .htok { width: 26px; height: 26px; } }
+  @media (max-width: 360px) { .tok { width: 38px; height: 38px; } .bon { max-width: 22px; } .htok { max-width: 26px; } }
 </style>
 </head>
 <body>
@@ -294,6 +306,6 @@
 <script src="js/strength-data.js?v=1"></script>
 <script src="js/online-game.js?v=1"></script>
 <script src="js/art.js?v=1"></script>
-<script src="js/app.js?v=1"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>

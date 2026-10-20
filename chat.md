@@ -7,3 +7,9 @@
 - **Verified:** 25 engine + 6 online tests pass; `tools/mutants.js` 9/9 broken engines caught. Full games through UI taps (Chromium mobile 393×659 with a reload mid-game; desktop 1440×900 4 players; Cities 3 players): finished, no console errors, no overflow, page height = screen height, Back works. phone-view (WebKit) screenshots of every tab at 393 and desktop.
 - **Bugs found and fixed while testing:** Cities games crashed (bots ignored the city choice); bot timer typo; SVG class clash `.chip`; log class clash `.me`; setup panel under the tab bar; market cards overflowing late-game (`fitMarket`); Cards tab list squeezed to zero height on phone (now one scroll area).
 - **Open:** QA pass by a fresh agent and the two-browser online room test (results go in progress.md).
+
+## 2026-10-20 — QA fixes
+- **Asked** (manager, from the QA agent's report): fix held-gem overlap / 4-player chips / hidden Deal; online points race empty; corrupt saves blanking the page; JSON-array save; Back with a sheet, hash nav, 4th colour tap, "Pick 2 more" count, "-3xnull", a pass-the-phone cover; verify city tile numbers against a source.
+- **Built:** all of the above (`js/app.js`, `index.html`), plus "You has a city" → "You have a city". City tiles compared by script: all 14 match lecodex XML + hexanome JSON + CSV and the rulebook's 3 examples (docs/rules-check.md).
+- **Verified:** 25 + 6 tests, mutants 9/9, `sp-fix.mjs` 36/36 (320/375/393 px, 10 corrupt-save variants, nav, cover), e2e phone + desktop Cities 4-player clean, two-browser online room on real Firebase finished with 0 errors and B's Study shows the points race.
+- **Open:** real iPhone; two real devices online.

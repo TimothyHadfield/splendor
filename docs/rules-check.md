@@ -74,7 +74,8 @@ Checked 2026-10-20. Rows marked ✓ are also asserted by a test in `tests/engine
 | If several cities qualify, choose one; you keep only one | X | ✓ | Cities: 60 full games |
 | Taking a city ends the round; only city holders can win; among them most points | X | ✓ | Cities: taking a city starts the final round |
 | Tie among city holders | X is silent | **Our call:** fewest cards, then shared (same as base) | — |
-| Exact tile values (13 / 13 / 13 / 13 / 17 / 16 / 11 / 11 / 15 / 12 / 13 / 14 / 13 / 14 points) | X + 2 data sets | ✓ (`js/cards.js` CITY_ROWS) | Cities tests |
+| Exact tile values (13 / 13 / 13 / 13 / 17 / 16 / 11 / 11 / 15 / 12 / 13 / 14 / 13 / 14 points, and every bonus requirement) | X (its 3 printed examples: 13 pts + 4 red + 3 black; 15 pts + 5 of one colour; 14 pts + 4 green + 4 of another) + 3 data sets | ✓ (`js/cards.js` CITY_ROWS) | Cities tests |
+| Data-set check (2026-10-20, script compare): all 14 of our tiles appear in the lecodex XML (exactly 14, identical), in the hexanome JSON and in the hexanome CSV. Each hexanome file also has one extra 15th row that the other two sets don't have, and they disagree on it (14 pts 3 blue + 3 red vs 12 pts 3 white + 1 green + 6 red), so it was treated as a stray test row | — | ✓ | — |
 | Which two sides share a physical tile | one data set only (hexanome) | used for "one side per tile" | NOT independently verified |
 
 ## Not built (parked)

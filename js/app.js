@@ -18,7 +18,8 @@
   const KEY = 'splendor.v1';
   let store;
   try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { store = null; }
-  if (!store || typeof store !== 'object') store = {};
+  if (!store || typeof store !== 'object' || Array.isArray(store)) store = {};
+  if (!store.settings || typeof store.settings !== 'object' || Array.isArray(store.settings)) store.settings = {};
   const defSettings = { seats: ['computer', 'off', 'off'], level: 'hard', cities: false, showTurns: true, hints: true, name: '' };
   store.settings = Object.assign({}, defSettings, store.settings || {});
   { // clamp anything odd from an old or edited save
@@ -35,14 +36,38 @@
   function LocalTable(g) { this.g = g; }
   LocalTable.prototype.view = function (seat) { return E.view(this.g.state, seat); };
   let table = null;
-  if (store.game && store.game.state) {
+  // a saved game must look exactly like one the engine made, or it is dropped (old or hand-edited saves)
+  function validState(s) {
+    const isArr = Array.isArray, int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
+    const ids = (a, max) => isArr(a) && a.every(x => int(x, 0, max));
+    const gems = (a, n) => isArr(a) && a.length === n && a.every(x => int(x, 0, 99));
+    if (!s || typeof s !== 'object' || !int(s.n, 2, 4) || !isArr(s.players) || s.players.length !== s.n) return false;
+    if (!int(s.turn, 0, s.n - 1) || !int(s.start, 0, s.n - 1) || !int(s.turns, 0, 100000)) return false;
+    if (['main', 'discard', 'noble', 'city'].indexOf(s.phase) < 0 || !isArr(s.log) || !gems(s.bank, 6)) return false;
+    if (!isArr(s.decks) || s.decks.length !== 3 || !s.decks.every(d => ids(d, 89))) return false;
+    if (!isArr(s.market) || s.market.length !== 3 || !s.market.every(r => isArr(r) && r.length <= 4 && r.every(x => x === null || int(x, 0, 89)))) return false;
+    if (!ids(s.nobles, NOBLES.length - 1) || !ids(s.cities || [], CITIES.length - 1)) return false;
+    if ((s.phase === 'noble' || s.phase === 'city') && !ids(s.nobleChoice, 99)) return false;
+    if (s.over && (!s.result || !isArr(s.result.winners) || !isArr(s.result.scores))) return false;
+    return s.players.every(p => p && typeof p === 'object' && typeof p.name === 'string' && gems(p.gems, 6) && gems(p.bonus, 5) &&
+      ids(p.cards, 89) && ids(p.nobles, NOBLES.length - 1) && ids(p.cities || [], CITIES.length - 1) && int(p.points, 0, 999) &&
+      isArr(p.reserved) && p.reserved.length <= 3 && p.reserved.every(r => r && int(r.id, 0, 89)));
+  }
+  function validStudy(st) { return st && typeof st === 'object' && Array.isArray(st.rec) && Array.isArray(st.race) && st.race.every(r => Array.isArray(r) && Array.isArray(r[1])); }
+  if (store.game) {
     try {
       const g = store.game;
-      if (!Array.isArray(g.kinds) || g.kinds.length !== g.state.n) throw new Error('bad');
+      if (!validState(g.state)) throw new Error('bad state');
+      if (!Array.isArray(g.kinds) || g.kinds.length !== g.state.n || g.kinds[0] !== 'human' || !g.kinds.every(k => k === 'human' || k === 'computer')) throw new Error('bad seats');
+      if (!LV_NAME[g.level]) g.level = 'hard';
+      if (!validStudy(g.study)) g.study = { rec: [], race: [] };
+      if (!(Number.isInteger(g.lastHuman) && g.kinds[g.lastHuman] === 'human')) g.lastHuman = 0;
       E.view(g.state, 0); E.legal(g.state, g.state.turn);
       table = new LocalTable(g);
     } catch (e) { store.game = null; save(); }
   }
+  if (store.last && !(typeof store.last === 'object' && Array.isArray(store.last.players) && store.last.players.length >= 2 && validStudy(store.last) &&
+    store.last.players.every(p => p && typeof p.name === 'string' && Number.isFinite(p.points)) && Number.isInteger(store.last.me))) { store.last = null; save(); }
   function OnlineTable(room) { this.online = true; this.room = room; this.snap = room.view(); }
   OnlineTable.prototype.view = function () { return SpOnlineGame.viewFromSnap(this.snap); };
 
@@ -88,6 +113,13 @@
     if (snap.status === 'playing' || snap.status === 'finished') {
       if (!table || !table.online) { table = new OnlineTable(net.room); resetSel(); ui.prev = null; net.savedLast = false; ui.study = { rec: [], race: [] }; }
       table.snap = snap;
+      try { // points race for the Study tab, one point per finished turn
+        const v = snap.pub ? SpOnlineGame.viewFromSnap(snap) : null;
+        if (v && (v.phase === 'main' || v.over)) {
+          const r = ui.study.race, last = r[r.length - 1];
+          if (!last || last[0] !== v.turns) r.push([v.turns, v.players.map(p => p.points)]);
+        }
+      } catch (e) { /* study is best-effort */ }
       if (snap.status === 'finished' && snap.pub && !net.savedLast) {
         net.savedLast = true;
         const v = SpOnlineGame.viewFromSnap(snap);
@@ -145,7 +177,7 @@
 
   // ------------------------------------------------------------------ ui state
   const ui = { online: false, tab: 'play', sel: null, take: [], ret: [0, 0, 0, 0, 0, 0], hint: null, prev: null, botTimer: null,
-    cardsLevel: 0, cardsSort: 'value', study: (store.game && store.game.study) || { rec: [], race: [] } };
+    cardsLevel: 0, cardsSort: 'value', shownSeat: null, study: (store.game && store.game.study) || { rec: [], race: [] } };
   function resetSel() { ui.sel = null; ui.take = []; ui.ret = [0, 0, 0, 0, 0, 0]; ui.hint = null; }
 
   // ------------------------------------------------------------------ helpers
@@ -209,7 +241,18 @@
     closeSheet();
     render();
   }
-  window.addEventListener('popstate', e => { showTab((e.state && e.state.tab) || 'play', false); });
+  const TABS = ['play', 'cards', 'study', 'settings'];
+  window.addEventListener('popstate', e => {
+    // Back with a sheet or a confirm box open just closes it and stays on this tab
+    const open = $('#sheet') || $('.confirm-back');
+    if (open) {
+      document.querySelectorAll('#sheet, .confirm-back').forEach(x => x.remove());
+      try { history.pushState({ tab: ui.tab }, '', '#' + ui.tab); } catch (err) { /* file:// */ }
+      return;
+    }
+    const h = (location.hash || '').slice(1);
+    showTab((e.state && TABS.indexOf(e.state.tab) >= 0 && e.state.tab) || (TABS.indexOf(h) >= 0 ? h : 'play'), false);
+  });
 
   document.addEventListener('click', e => {
     const old = $('.pop');
@@ -233,10 +276,26 @@
     else if (ui.tab === 'study') renderStudy();
     else renderSettings();
   }
+  // a screen that fails to draw drops whatever saved data broke it, instead of leaving a blank page
+  function safely(fn, name) {
+    return function () {
+      try { return fn.apply(this, arguments); }
+      catch (e) {
+        if (window.console) console.warn('Splendor: ' + name + ' failed', e);
+        if (name === 'study' && store.last) { store.last = null; save(); return fn.apply(this, arguments); }
+        if (name === 'play' && table && !table.online) {
+          clearTimeout(ui.botTimer); store.game = null; table = null; ui.prev = null; save();
+          toast('That saved game couldn’t be loaded, so it was cleared.');
+          return fn.apply(this, arguments);
+        }
+        throw e;
+      }
+    };
+  }
 
   // ================================================================== PLAY
   const vPlay = $('#v-play');
-  function renderPlay() { if (table) renderGame(); else if (ui.online) renderOnline(); else renderSetup(); }
+  const renderPlay = safely(function () { if (table) renderGame(); else if (ui.online) renderOnline(); else renderSetup(); }, 'play');
 
   function renderOnline() {
     const s = net.snap;
@@ -317,7 +376,7 @@
     store.game = { state, kinds, level: s.level, started: Date.now(), lastHuman: 0, study: { rec: [], race: [[0, state.players.map(() => 0)]] } };
     ui.study = store.game.study;
     table = new LocalTable(store.game);
-    resetSel(); ui.prev = null;
+    resetSel(); ui.prev = null; ui.shownSeat = 0;
     save();
     renderPlay();
   }
@@ -392,6 +451,16 @@
     const seat = mySeat();
     const v = table.view(seat);
     if (!v) { vPlay.innerHTML = '<div class="setup"><div class="panel"><b>Connecting…</b></div></div>'; return; }
+    // friends sharing one phone: cover the table until the next friend is holding it (blind reserves stay secret)
+    if (!table.online && !v.over && table.g.kinds.filter(k => k === 'human').length > 1 &&
+      table.g.kinds[v.turn] === 'human' && ui.shownSeat !== v.turn) {
+      ui.prev = null;
+      vPlay.innerHTML = '<div class="setup" style="justify-content:center"><div class="panel" style="align-items:center;text-align:center;gap:12px">' +
+        '<span class="label">Pass the phone to</span><b style="font-size:24px">' + esc(v.players[v.turn].name) + '</b>' +
+        '<p class="muted small" style="margin:0">Only they should look: their reserved cards show next.</p>' +
+        '<button class="btn primary" data-ready id="ready" style="width:100%">Show my turn</button></div></div>';
+      return;
+    }
     const prev = ui.prev;
     const before = captureRects();
     const me = v.players[seat];
@@ -403,13 +472,13 @@
     const chips = v.players.map((p, i) => '<div class="chip' + (i === v.turn && !v.over ? ' turn' : '') + (away(i) ? ' away' : '') + '" data-player="' + i + '" id="chip-' + i + '">' +
       '<span class="dot" style="background:' + SEAT_COL[i] + '"></span><span class="nmx">' + esc(i === seat ? (table.online ? p.name : 'You') : p.name) + '</span>' +
       '<span class="sub" title="gems held"><i></i>' + sum(p.gems) + '</span><span class="pts">' + p.points + '</span></div>').join('');
-    const status = '<div class="status"><div class="chips">' + chips + '</div><button class="icon-btn" data-menu aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button></div>';
+    const status = '<div class="status"><div class="chips' + (v.players.length > 3 ? ' many' : '') + '">' + chips + '</div><button class="icon-btn" data-menu aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button></div>';
 
     // nobles
     const choose = (v.phase === 'noble' || v.phase === 'city') && my;
     const isCities = v.mode === 'cities';
     const nob = isCities ? v.cities.map(id => Art.city(id, 'noble' + (choose && v.nobleChoice.indexOf(id) >= 0 ? ' choose' : '')).replace('<svg ', '<svg data-city="' + id + '" ')).join('') +
-      v.players.filter(p => p.cities.length).map(p => '<span class="small muted">' + esc(p.name) + ' has a city</span>').join('') : v.nobles.map(id => {
+      v.players.filter(p => p.cities.length).map(p => '<span class="small muted">' + esc(p.name) + (p.name === 'You' ? ' have' : ' has') + ' a city</span>').join('') : v.nobles.map(id => {
       const close = NOBLES[id].req.reduce((s, x, k) => s + Math.max(0, x - me.bonus[k]), 0);
       const cls = choose && v.nobleChoice.indexOf(id) >= 0 ? ' choose' : close <= 2 ? ' close' : '';
       return Art.noble(id, 'noble' + cls).replace('<svg ', '<svg data-noble="' + id + '" ');
@@ -454,8 +523,8 @@
     let holds = '<div class="holds">';
     for (let k = 0; k < 6; k++) {
       const r = ui.ret[k];
-      holds += '<div class="hold">' + (k < 5 ? '<div class="bon' + (me.bonus[k] ? '' : ' none') + '" style="background:' + Art.PAL[k][0] + ';color:' + (k === 0 ? '#222' : '#fff') + '" title="' + COLW[k] + ' cards">' + me.bonus[k] + '</div>' : '<div class="bon none" style="visibility:hidden"></div>') +
-        '<button class="htok' + (me.gems[k] ? '' : ' zero') + (discard ? ' ret' : '') + (r ? ' retd' : '') + '" data-ret="' + k + '" data-r="' + r + '" id="h-' + k + '" aria-label="' + COLW[k] + ' gems held: ' + me.gems[k] + '">' + Art.chip(k) + '<b>' + me.gems[k] + '</b></button></div>';
+      holds += '<div class="hold' + (discard ? ' ret' : '') + '"' + (discard ? ' data-ret="' + k + '"' : '') + '>' + (k < 5 ? '<div class="bon' + (me.bonus[k] ? '' : ' none') + '" style="background:' + Art.PAL[k][0] + ';color:' + (k === 0 ? '#222' : '#fff') + '" title="' + COLW[k] + ' cards">' + me.bonus[k] + '</div>' : '<div class="bon none" style="visibility:hidden"></div>') +
+        '<button class="htok' + (me.gems[k] ? '' : ' zero') + (discard ? ' ret' : '') + (r ? ' retd' : '') + '" data-r="' + r + '" id="h-' + k + '" aria-label="' + COLW[k] + ' gems held: ' + me.gems[k] + '">' + Art.chip(k) + '<b>' + me.gems[k] + '</b></button></div>';
     }
     holds += '</div>';
     let res = '<div class="res">';
@@ -538,7 +607,9 @@
       const k = ui.take;
       const txt = k.length === 2 && k[0] === k[1] ? '2 ' + COLW[k[0]] : k.map(x => COLW[x]).join(', ');
       const over = sum(me.gems) + k.length - 10;
-      return '<div class="say"><b>Take ' + txt + '</b>' + (ok ? (over > 0 ? '<br>You’ll return ' + over + '.' : '') : '<br>Pick ' + (3 - k.length) + ' more colour' + (3 - k.length > 1 ? 's' : '') + ' (or tap one twice for 2).') + '</div>' +
+      const left = Math.min(3, [0, 1, 2, 3, 4].filter(x => v.bank[x] > 0).length) - k.length;
+      const more = left > 0 ? 'Pick ' + left + ' more colour' + (left > 1 ? 's' : '') + (k.length === 1 && v.bank[k[0]] >= 4 ? ' (or tap it again for 2).' : '.') : 'Tap a colour again to put it back.';
+      return '<div class="say"><b>Take ' + txt + '</b>' + (ok ? (over > 0 ? '<br>You’ll return ' + over + '.' : '') : '<br>' + more) + '</div>' +
         '<button class="btn ghost" data-clear>Clear</button><button class="btn primary" data-take' + (ok ? '' : ' disabled') + ' id="do-take">Take</button>';
     }
     if (ui.sel && ui.sel.kind === 'card') {
@@ -619,6 +690,7 @@
     const sb = t.closest('[data-seat]');
     if (sb && net.room) { net.room.setSeat(Number(sb.dataset.seat), sb.dataset.kind); return; }
     if (!table) return;
+    if (t.closest('[data-ready]')) { if (!table.online) ui.shownSeat = table.g.state.turn; renderPlay(); return; }
     const seat = mySeat();
     const v = table.view(seat);
     if (!v) return;
@@ -671,6 +743,7 @@
       } else if (has) ui.take.splice(ui.take.indexOf(k), 1);
       else if (ui.take.length === 2 && ui.take[0] === ui.take[1]) ui.take = [k];
       else if (ui.take.length < 3) ui.take.push(k);
+      else { toast('3 gems at most. Tap one you picked to put it back.'); return; }
       renderPlay(); return;
     }
     const cd = t.closest('[data-card]');
@@ -786,7 +859,8 @@
 
   // ================================================================== STUDY
   const vStudy = $('#v-study');
-  function renderStudy() {
+  const renderStudy = safely(renderStudyRaw, 'study');
+  function renderStudyRaw() {
     const L = (table && !table.online && !table.g.state.over) ? null : store.last;
     const live = table && !table.online && !table.g.state.over ? table.g : null;
     const src = live ? { rec: live.study.rec, race: live.study.race, players: live.state.players.map(p => ({ name: p.name, points: p.points })), me: 0 } : L;
