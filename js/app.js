@@ -127,7 +127,7 @@
     if (snap.status === 'playing' || snap.status === 'finished') {
       if (!table || !table.online) {
         table = new OnlineTable(net.room); resetSel(); ui.prev = null; net.savedLast = false; ui.study = { rec: [], race: [] };
-        if (snap.status === 'playing') FX.play('shuffle');
+        if (snap.status === 'playing') { FX.play('shuffle'); ui.dealAll = true; }
       }
       table.snap = snap;
       try { // points race for the Study tab, one point per finished turn
@@ -312,7 +312,7 @@
 
   // ================================================================== PLAY
   const vPlay = $('#v-play');
-  const renderPlay = safely(function () { if (table) renderGame(); else if (ui.online) renderOnline(); else renderSetup(); }, 'play');
+  const renderPlay = safely(function () { vPlay.classList.remove('tbl-surface', 'tbl-wood-dark', 'on-table'); if (table) renderGame(); else if (ui.online) renderOnline(); else renderSetup(); }, 'play');
 
   function renderOnline() {
     const s = net.snap;
@@ -393,7 +393,7 @@
     store.game = { state, kinds, level: s.level, started: Date.now(), lastHuman: 0, study: { rec: [], race: [[0, state.players.map(() => 0)]] } };
     ui.study = store.game.study;
     table = new LocalTable(store.game);
-    resetSel(); ui.prev = null; ui.shownSeat = 0;
+    resetSel(); ui.prev = null; ui.shownSeat = 0; ui.dealAll = true;
     save();
     FX.play('shuffle');
     renderPlay();
@@ -488,11 +488,9 @@
     const showT = store.settings.showTurns;
     const away = i => !!(table.online && table.snap.seats && table.snap.seats[i] && table.snap.seats[i].kind === 'human' && !table.snap.seats[i].online);
 
-    // status chips
-    const chips = v.players.map((p, i) => '<div class="chip' + (i === v.turn && !v.over ? ' turn' : '') + (away(i) ? ' away' : '') + '" data-player="' + i + '" id="chip-' + i + '">' +
-      '<span class="dot" style="background:' + SEAT_COL[i] + '"></span><span class="nmx">' + esc(i === seat ? (table.online ? p.name : 'You') : p.name) + '</span>' +
-      '<span class="sub" title="gems held"><i></i>' + sum(p.gems) + '</span><span class="pts">' + p.points + '</span></div>').join('');
-    const status = '<div class="status"><div class="chips' + (v.players.length > 3 ? ' many' : '') + '">' + chips + '</div><button class="icon-btn" data-menu aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button></div>';
+    // the other players, sitting across the table: name plate, their card columns, gems and the cards in their hand
+    const seatsRow = v.players.map((p, i) => i === seat ? '' : seatHTML(p, i, v, away(i))).join('');
+    const status = '<div class="status"><div class="seats-row n' + (v.players.length - 1) + '">' + seatsRow + '</div><button class="icon-btn" data-menu aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button></div>';
 
     // nobles
     const choose = (v.phase === 'noble' || v.phase === 'city') && my;
@@ -506,22 +504,23 @@
     const rnd = '<div class="rnd">' + (v.finalRound && !v.over ? '<span class="final">Final round</span><br>' : '') + 'Round <b>' + (Math.floor(v.turns / v.n) + 1) + '</b>' +
       qBtn(isCities ? 'A city comes to you at the end of your turn once you have its prestige and bonuses (grey = that many of one colour; "other" = one colour not already shown). Then the round finishes; only city holders can win, most points first.' :
         'First to 15 prestige ends the game, but the round is finished so everyone has the same number of turns. Most points wins; a tie goes to whoever bought fewer cards.') + '</div>';
-    const nobles = '<div class="nobles">' + nob + rnd + '</div>';
+    const nobles = '<div class="nobles"><div class="ntiles">' + nob + '</div>' + rnd + '</div>';
 
     // market
     let market = '<div class="market">';
     for (let l = 2; l >= 0; l--) {
       market += '<div class="mrow">';
       const dsel = ui.sel && ui.sel.kind === 'deck' && ui.sel.level === l + 1;
-      market += v.deckSizes[l] ? '<div class="slot deck' + (dsel ? ' sel' : '') + (ui.hint && ui.hint.deck === l + 1 ? ' hint' : '') + '" data-deck="' + (l + 1) + '">' + Art.back(l + 1) + '<span class="cnt">' + v.deckSizes[l] + '</span></div>' : '<div class="slot empty"></div>';
+      // the deck is a real stack: its edge gets thinner as cards are drawn
+      market += v.deckSizes[l] ? '<div class="slot deck' + (dsel ? ' sel' : '') + (ui.hint && ui.hint.deck === l + 1 ? ' hint' : '') + '" data-deck="' + (l + 1) + '" id="deck-' + (l + 1) + '" style="--stack:' + deckEdge(v.deckSizes[l]) + '">' + Art.back(l + 1) + '<span class="cnt">' + v.deckSizes[l] + '</span></div>' : '<div class="slot empty" id="deck-' + (l + 1) + '"></div>';
       v.market[l].forEach((id, i) => {
         if (id === null) { market += '<div class="slot empty"></div>'; return; }
         const t = E.turnsToAfford(me, id, v.bank);
         const badge = showT ? '<span class="tta' + (t === 0 ? ' now' : t === Infinity ? ' far' : '') + '" style="color:' + (t === 0 ? 'var(--good)' : t === Infinity ? '#59607a' : heat(4 - t, 0, 3)) + '">' + (t === 0 ? '✓' : t === Infinity ? '' : t) + '</span>' : '';
-        const isNew = prev && prev.market[l][i] !== id;
+        const isNew = (prev && prev.market[l][i] !== id) || ui.dealAll;
         const sel = ui.sel && ui.sel.kind === 'card' && ui.sel.id === id;
         const hint = ui.hint && (ui.hint.t === 'buy' || ui.hint.t === 'reserve') && ui.hint.id === id;
-        market += '<div class="slot' + (sel ? ' sel' : '') + (hint ? ' hint' : '') + (isNew ? ' deal' : '') + '" data-card="' + id + '" id="c-' + id + '">' + Art.card(id) + badge + '</div>';
+        market += '<div class="slot' + (sel ? ' sel' : '') + (hint ? ' hint' : '') + '"' + (isNew ? ' data-dealt="' + (l + 1) + '"' : '') + ' data-card="' + id + '" id="c-' + id + '">' + Art.card(id) + badge + '</div>';
       });
       market += '</div>';
     }
@@ -534,7 +533,7 @@
       const hint = ui.hint && ((ui.hint.t === 'take' && ui.hint.g.indexOf(k) >= 0) || (ui.hint.t === 'take2' && ui.hint.c === k));
       const changed = prev && prev.bank[k] !== v.bank[k];
       bank += '<button class="tok' + (v.bank[k] ? '' : ' zero') + (picked ? ' pick' : '') + (hint ? ' hint' : '') + (changed ? ' bump' : '') + '" data-tok="' + k + '" id="t-' + k + '" data-k="' + (picked ? '+' + picked : '') + '" aria-label="' + COLW[k] + ' gems: ' + v.bank[k] + '">' +
-        Art.chip(k) + '<span class="n">' + v.bank[k] + '</span></button>';
+        chipStack(k, v.bank[k], 7) + '<span class="n">' + v.bank[k] + '</span></button>';
     }
     bank += '<div class="side">Bank' + qBtn('Take 3 gems of different colours, or 2 of one colour if 4 or more of it are left. Gold only comes from reserving a card. You may hold 10 gems at most.') + '</div></div>';
 
@@ -543,34 +542,41 @@
     let holds = '<div class="holds">';
     for (let k = 0; k < 6; k++) {
       const r = ui.ret[k];
-      holds += '<div class="hold' + (discard ? ' ret' : '') + '"' + (discard ? ' data-ret="' + k + '"' : '') + '>' + (k < 5 ? '<div class="bon' + (me.bonus[k] ? '' : ' none') + '" style="background:' + Art.PAL[k][0] + ';color:' + (k === 0 ? '#222' : '#fff') + '" title="' + COLW[k] + ' cards">' + me.bonus[k] + '</div>' : '<div class="bon none" style="visibility:hidden"></div>') +
-        '<button class="htok' + (me.gems[k] ? '' : ' zero') + (discard ? ' ret' : '') + (r ? ' retd' : '') + '" data-r="' + r + '" id="h-' + k + '" aria-label="' + COLW[k] + ' gems held: ' + me.gems[k] + '">' + Art.chip(k) + '<b>' + me.gems[k] + '</b></button></div>';
+      // each colour: the cards you bought in an overlapping column (as players lay them out), your gems stacked below
+      holds += '<div class="hold' + (discard ? ' ret' : '') + '"' + (discard ? ' data-ret="' + k + '"' : '') + '>' + (k < 5 ? cardColumn(k, me.bonus[k], 'col-' + k) : nobleSpot(me, v)) +
+        '<button class="htok' + (me.gems[k] ? '' : ' zero') + (discard ? ' ret' : '') + (r ? ' retd' : '') + '" data-r="' + r + '" id="h-' + k + '" aria-label="' + COLW[k] + ' gems held: ' + me.gems[k] + '">' + chipStack(k, me.gems[k], 5, '<b>' + me.gems[k] + '</b>') + '</button></div>';
     }
     holds += '</div>';
-    let res = '<div class="res">';
-    for (let i = 0; i < 3; i++) {
-      const r = me.reserved[i];
-      if (!r) { res += '<div class="slot empty"></div>'; continue; }
+    // reserved cards are held in your hand, fanned
+    let res = '<div class="res hand n' + me.reserved.length + '" id="my-hand">';
+    me.reserved.forEach(r => {
       const sel = ui.sel && ui.sel.kind === 'card' && ui.sel.id === r.id;
       const hint = ui.hint && ui.hint.t === 'buy' && ui.hint.id === r.id;
       res += '<div class="slot' + (sel ? ' sel' : '') + (hint ? ' hint' : '') + '" data-card="' + r.id + '" data-res="1" id="c-' + r.id + '">' + (r.id !== null ? Art.card(r.id) : Art.back(r.level)) + '</div>';
-    }
+    });
     res += '</div>';
     const meBox = '<div class="me' + (my ? ' turn' : '') + '" id="me-box"><div class="mine-info"><b id="my-pts">' + me.points + '</b>pts<br>' + sum(me.gems) + '/10</div>' + holds + res + '</div>';
 
     // action bar
     const acts = '<div class="acts' + (my ? ' go' : '') + '" id="acts">' + actionBar(v, seat, my) + '</div>';
 
-    // laptop side panel
-    const side = '<div id="g-side"><div class="panel scroll opp-box">' + v.players.map((p, i) => i === seat ? '' : oppHTML(p, i)).join('') + '</div>' +
+    // laptop side panel: the log (opponents now sit across the table)
+    const side = '<div id="g-side">' +
       '<div class="panel log-box" style="min-height:0;display:flex;flex-direction:column;gap:6px"><span class="label">Log</span><div class="scroll" id="logbox"><ul class="log">' + logHTML(v, seat) + '</ul></div></div></div>';
 
+    vPlay.classList.add('tbl-surface', 'tbl-wood-dark', 'on-table');
     vPlay.innerHTML = '<div id="game">' + status + nobles + market + bank + meBox + acts + side + '</div>';
     fitMarket();
+    if (window.TABLE) TABLE.scatter(vPlay.querySelectorAll('.ntiles > svg'), 'nobles' + v.nobles.concat(v.cities || []).join(), { rot: 3, off: 1 });
+    // each face-up card lies a hair off-square, the way hands put cards down (seeded by the card, so it stays put)
+    if (window.TABLE) vPlay.querySelectorAll('.market .slot[data-card]').forEach(el => TABLE.scatter([el], 'mk' + el.dataset.card, { rot: 1.2, off: 0.6 }));
     const lb = $('#logbox'); if (lb) lb.scrollTop = lb.scrollHeight;
     // "your turn" for the chime ignores the brief "Sending…" moment online
     const myTurn = !v.over && v.turn === seat && (table.online ? !!table.snap.myTurn : table.g.kinds[v.turn] === 'human');
-    if (prev) { animateMove(prev, v, before, seat); sfx(prev, v, seat, ui.wasMy, myTurn, ui.tab === 'play'); }
+    const lead = prev ? animateMove(prev, v, before, seat) : 0;
+    dealNew(before, lead);
+    ui.dealAll = false;
+    if (prev) sfx(prev, v, seat, ui.wasMy, myTurn, ui.tab === 'play');
     ui.prev = v; ui.prevSeat = seat; ui.wasMy = myTurn;
     scheduleBot();
     if (v.over && !ui.endShown) { ui.endShown = true; setTimeout(() => { if (ui.tab === 'play') showEnd(v, seat); else ui.endShown = false; }, 900); }
@@ -586,20 +592,54 @@
     let w = (m.clientWidth - 4 * gap) / 5;
     const g = $('#game'), side = $('#g-side');
     if (g && side && side.offsetWidth) { // laptop: the market column sizes to its cards, so measure the room around it
-      const nb = $('.nobles'), bk = $('.bank');
-      const room = g.clientWidth - side.offsetWidth - (nb ? nb.offsetWidth : 0) - (bk ? bk.offsetWidth : 0) - 6 * 14;
+      const bk = $('.bank');
+      const room = g.clientWidth - side.offsetWidth - (bk ? bk.offsetWidth : 0) - 6 * 14;
       w = (room - 4 * gap) / 5;
     }
     m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h, w * 1.4))) + 'px');
   }
   window.addEventListener('resize', fitMarket);
-  function oppHTML(p, i) {
-    const mini = '<div class="minirow"><span class="lb">Cards</span>' + [0, 1, 2, 3, 4].map(k => '<span class="mini" style="width:30px"><span class="sq" style="background:' + Art.PAL[k][0] + '"></span>' + p.bonus[k] + '</span>').join('') + '</div>' +
-      '<div class="minirow"><span class="lb">Gems</span>' + [0, 1, 2, 3, 4, 5].map(k => '<span class="mini" style="width:30px"><span class="ci" style="background:' + Art.PAL[k][0] + '"></span>' + p.gems[k] + '</span>').join('') + '</div>';
-    const res = p.reserved.map(r => '<div class="slot">' + (r.id !== null ? Art.card(r.id) : Art.back(r.level)) + '</div>').join('');
-    return '<div class="opp"><div class="top"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:' + SEAT_COL[i] + '"></span><span class="grow">' + esc(p.name) + '</span>' +
-      (p.nobles.length ? '<span class="muted small">' + p.nobles.length + ' noble' + (p.nobles.length > 1 ? 's' : '') + '</span>' : '') + '<b>' + p.points + '</b></div>' +
-      mini + (res ? '<div class="res">' + res + '</div>' : '') + '</div>';
+  // ---- table pieces (real-looking cards, chips and stacks; original art)
+  // a deck's edge: paper lines under the top card, thinner as the deck shrinks
+  function deckEdge(n) {
+    const t = window.TABLE ? TABLE.stackShadow(n, { perCard: 0.25, max: 9 }) : null;
+    return t ? t.shadow : '0 2px 4px rgba(0,0,0,.4)';
+  }
+  // a pile of gem chips, each one a little higher; the count rides on the top chip
+  function chipStack(k, n, cap, label) {
+    const vis = Math.max(1, Math.min(n, cap));
+    let s = '<span class="stk" style="--n:' + vis + '">';
+    for (let i = 0; i < vis; i++) s += '<span class="st" style="--i:' + i + '">' + Art.chip(k) + (i === vis - 1 && label ? label : '') + '</span>';
+    return s + '</span>';
+  }
+  // the cards of one colour laid in a column, each showing its top edge; the number is how many
+  function cardColumn(k, n, id, cap) {
+    const vis = Math.min(n, cap || 4);
+    const style = 'style="--c:' + Art.PAL[k][0] + ';--c2:' + Art.PAL[k][2] + ';--ink:' + (k === 0 ? '#222' : '#fff') + '"';
+    let s = '<div class="ccol' + (n ? '' : ' none') + '" id="' + id + '" ' + style + ' title="' + n + ' ' + COLW[k] + ' card' + (n === 1 ? '' : 's') + '">';
+    if (!n) return s + '<span class="mc spot"></span></div>';
+    for (let i = 0; i < vis; i++) s += '<span class="mc" style="--i:' + (vis - 1 - i) + '"><i class="mg">' + Art.gem(k) + '</i>' + (i === vis - 1 ? '<b>' + n + '</b>' : '') + '</span>';
+    return s + '</div>';
+  }
+  // nobles (or a city) you earned lie beside your cards
+  function nobleSpot(p) {
+    const won = (p.cities || []).length ? Art.city(p.cities[p.cities.length - 1], 'mnob') : p.nobles.length ? Art.noble(p.nobles[p.nobles.length - 1], 'mnob') : '';
+    const n = p.nobles.length + (p.cities || []).length;
+    return '<div class="ccol nobcol" id="col-5">' + won + (n > 1 ? '<b class="nn">' + n + '</b>' : '') + '</div>';
+  }
+  // another player's place at the table
+  function seatHTML(p, i, v, isAway) {
+    const cols = [0, 1, 2, 3, 4].map(k => cardColumn(k, p.bonus[k], 'oc-' + i + '-' + k, 3)).join('');
+    const gems = [0, 1, 2, 3, 4, 5].map(k => '<span class="og' + (p.gems[k] ? '' : ' zero') + '" id="og-' + i + '-' + k + '">' + chipStack(k, p.gems[k], 4, '<b>' + p.gems[k] + '</b>') + '</span>').join('');
+    const handBacks = p.reserved.map(r => '<span class="hb">' + Art.back(r.id !== null ? CARDS[r.id].level : r.level) + '</span>').join('') + (p.reserved.length > 1 ? '<b class="hn">' + p.reserved.length + '</b>' : '');
+    const handCards = p.reserved.map(r => '<span class="hc">' + (r.id !== null ? Art.card(r.id) : Art.back(r.level)) + '</span>').join('');
+    const nob = p.nobles.length + (p.cities || []).length;
+    return '<div class="seat' + (i === v.turn && !v.over ? ' turn' : '') + (isAway ? ' away' : '') + '" data-player="' + i + '" id="chip-' + i + '">' +
+      '<div class="plate" style="--sc:' + SEAT_COL[i] + '"><span class="dot" style="background:' + SEAT_COL[i] + '"></span><span class="nmx">' + esc(p.name) + '</span>' +
+      (handBacks ? '<span class="hand-ph" id="oh-' + i + '">' + handBacks + '</span>' : '') +
+      (nob ? '<span class="onob" title="' + nob + (v.mode === 'cities' ? ' city' : ' noble') + '">' + nob + '</span>' : '') + '<b class="pts">' + p.points + '</b></div>' +
+      '<div class="otab"><div class="ocols">' + cols + '</div><div class="ogems">' + gems + '</div>' +
+      '<span class="gtot" title="gems held"><i></i>' + sum(p.gems) + '</span>' + (handCards ? '<div class="hand-lp" id="ohl-' + i + '">' + handCards + '</div>' : '') + '</div></div>';
   }
   function logHTML(v, seat) {
     return v.log.slice(-30).map(l => '<li class="' + (l.seat === seat ? 'mine' : '') + '">' + esc(l.text) + '</li>').join('');
@@ -672,51 +712,104 @@
   // ------------------------------------------------------------------ motion: cards and gems travel
   function captureRects() {
     const r = {};
-    vPlay.querySelectorAll('[data-card], [data-tok], .chip[data-player], #me-box, [data-deck], .htok').forEach(el => { r[el.id || ('d' + el.dataset.deck)] = { rect: el.getBoundingClientRect(), html: el.innerHTML }; });
+    vPlay.querySelectorAll('[data-card], [data-tok], .seat[data-player], #me-box, [data-deck], .htok, .og').forEach(el => { r[el.dataset.deck ? 'd' + el.dataset.deck : el.id] = { rect: el.getBoundingClientRect() }; });
     return r;
   }
-  // Animations off = nothing flies; Fast = half the time
-  function fly(fromRect, toEl, html, w, h) {
+  // Animations off = nothing flies; Fast = about half the time.
+  // A flying piece is a fresh, solid copy of the card or chip (no badges, no see-through fade), so it looks exactly like the
+  // real thing in the hand. Cards can turn over in 3-D on the way (face-down from a deck, face-up on arrival).
+  const shown = el => (el && el.getBoundingClientRect().width > 0 ? el : null);
+  function fly(fromRect, toEl, front, o) {
+    o = o || {};
     if (!fromRect || !toEl || !document.body.animate || !anim()) return;
     const to = toEl.getBoundingClientRect();
-    const f = document.createElement('div');
-    f.className = 'flyer'; f.innerHTML = html;
-    const W = w || fromRect.width, H = h || (w ? w * fromRect.height / fromRect.width : fromRect.height);
+    const W = o.w || fromRect.width, H = o.h || fromRect.height;
     const x0 = fromRect.left + fromRect.width / 2 - W / 2, y0 = fromRect.top + fromRect.height / 2 - H / 2;
+    const f = document.createElement('div');
+    f.className = 'flyer' + (o.card ? ' card-fly' : '');
+    f.innerHTML = o.back ? '<div class="fi"><div class="ff">' + front + '</div><div class="fb">' + o.back + '</div></div>' : front;
     Object.assign(f.style, { left: x0 + 'px', top: y0 + 'px', width: W + 'px', height: H + 'px' });
+    const ms = Math.round((o.ms || 480) * spd()), delay = Math.round((o.delay || 0) * spd());
     document.body.appendChild(f);
+    // land at the size of what it lands on (a card in a column, a hand, a seat), never bigger than it started
+    const s = o.scale != null ? o.scale : Math.max(0.2, Math.min(1, (o.card ? to.height / H : to.width / W) || 1));
     const dx = to.left + to.width / 2 - (x0 + W / 2), dy = to.top + to.height / 2 - (y0 + H / 2);
-    const ms = Math.round(520 * spd());
-    const a = f.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.45)', opacity: 0.2 }], { duration: ms, easing: 'cubic-bezier(.3,.7,.3,1)' });
-    a.onfinish = () => f.remove();
-    setTimeout(() => f.remove(), ms + 380);
+    const rot = o.rot || 0;
+    const timing = { duration: ms, delay, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'both' };
+    const a = f.animate([{ transform: 'translate(0,0) scale(1) rotate(0deg)' }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ') rotate(' + rot + 'deg)' }], timing);
+    const inner = o.back && f.firstChild;
+    if (inner) { // face-down: 180; turning up on the way = 180 -> 0
+      const r0 = o.flip === 'up' || o.flip === 'stay' ? 180 : 0, r1 = o.flip === 'up' ? 0 : r0;
+      inner.style.transform = 'rotateY(' + r1 + 'deg)';
+      if (r0 !== r1) inner.animate([{ transform: 'rotateY(' + r0 + 'deg)', offset: 0 }, { transform: 'rotateY(' + r0 + 'deg)', offset: 0.35 }, { transform: 'rotateY(' + r1 + 'deg)' }], timing);
+    }
+    const done = () => { f.remove(); if (o.onDone) o.onDone(); };
+    a.onfinish = done;
+    setTimeout(() => { if (f.parentNode) done(); }, delay + ms + 400);
   }
-  // one gem chip gliding (payments and returns go back to the bank)
-  const flyChip = (fromRect, k, toEl, delay) => setTimeout(() => fly(fromRect, toEl, Art.chip(k), 26, 26), delay);
+  // one gem chip gliding (taking, paying back to the bank, returning over 10)
+  const chipSize = k => { const t = $('#t-' + k); return t ? Math.min(44, t.querySelector('.st').getBoundingClientRect().width || 30) : 30; };
+  function flyChip(fromRect, k, toEl, delay) {
+    const z = chipSize(k);
+    fly(fromRect, toEl, Art.chip(k), { w: z, h: z, delay, ms: 420, scale: Math.max(0.5, Math.min(1, (toEl.getBoundingClientRect().width || z) / z)) });
+  }
+  // where things land
+  const cardSpot = (who, seat, k) => (who === seat ? shown($('#col-' + k)) : shown($('#oc-' + who + '-' + k))) || (who === seat ? $('#me-box') : $('#chip-' + who));
+  const handSpot = (who, seat) => (who === seat ? shown($('#my-hand .slot:last-child')) || $('#my-hand') : shown($('#ohl-' + who + ' .hc:last-child')) || shown($('#oh-' + who)) || $('#chip-' + who));
+  const gemSpot = (who, seat, k) => (who === seat ? $('#h-' + k) : shown($('#og-' + who + '-' + k)) || shown($('#chip-' + who + ' .gtot')) || $('#chip-' + who));
+  // the card in your hand appears when the flying copy lands on it, not before
+  const hideTill = el => { if (!el || !el.classList.contains('slot')) return null; el.style.visibility = 'hidden'; return () => { el.style.visibility = ''; }; };
+  // returns how long the main flight takes, so a replacement card is dealt after it
   function animateMove(prev, v, before, seat) {
     const L = v.last;
-    if (!L || v.turns === prev.turns && v.phase === prev.phase && JSON.stringify(v.bank) === JSON.stringify(prev.bank)) return;
-    if (!anim()) return;
+    if (!L || v.turns === prev.turns && v.phase === prev.phase && JSON.stringify(v.bank) === JSON.stringify(prev.bank)) return 0;
+    if (!anim()) return 0;
     const who = L.seat;
-    const target = who === seat ? $('#me-box') : $('#chip-' + who);
-    if (!target) return;
-    const sp = spd();
-    const fromOf = k => (who === seat && before['h-' + k] ? before['h-' + k] : before['chip-' + who] || before['me-box']);
+    if (!(who === seat ? $('#me-box') : $('#chip-' + who))) return 0;
+    let lead = 0;
+    const fromOf = k => (who === seat && before['h-' + k] ? before['h-' + k] : before['og-' + who + '-' + k] || before['chip-' + who] || before['me-box']);
     if (prev.phase === 'main') {
-      if ((L.t === 'buy' || L.t === 'reserve') && L.id !== null && L.id !== undefined && before['c-' + L.id]) fly(before['c-' + L.id].rect, target, before['c-' + L.id].html);
-      else if (L.t === 'reserve' && L.deck && before['d' + L.deck]) fly(before['d' + L.deck].rect, target, before['d' + L.deck].html);
+      const p = v.players[who];
+      if (L.t === 'buy' && L.id != null && before['c-' + L.id]) { // the card is laid on its colour column
+        fly(before['c-' + L.id].rect, cardSpot(who, seat, CARDS[L.id].bonus), Art.card(L.id), { card: true });
+        lead = 380;
+      } else if (L.t === 'reserve' && L.id != null && before['c-' + L.id]) { // picked up into the hand
+        const to = handSpot(who, seat), land = hideTill(who === seat ? to : null);
+        fly(before['c-' + L.id].rect, to, Art.card(L.id), { card: true, rot: who === seat ? 6 : 0, onDone: land });
+        lead = 380;
+      } else if (L.t === 'reserve' && L.deck && before['d' + L.deck]) { // top card off the deck; you see it turn over, others don't
+        const mine = who === seat && p.reserved.length && p.reserved[p.reserved.length - 1].id != null;
+        const front = mine ? Art.card(p.reserved[p.reserved.length - 1].id) : Art.back(L.deck);
+        const to = handSpot(who, seat), land = hideTill(who === seat ? to : null);
+        fly(before['d' + L.deck].rect, to, front, { card: true, back: Art.back(L.deck), flip: mine ? 'up' : 'stay', rot: who === seat ? 6 : 0, onDone: land });
+      }
+      if (L.t === 'reserve' && v.bank[5] < prev.bank[5] && before['t-5']) flyChip(before['t-5'].rect, 5, gemSpot(who, seat, 5), 120);
       if (L.t === 'buy' && L.pay) { // the payment slides back to the bank, one chip per colour paid
         let n = 0;
-        L.pay.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, (140 + n++ * 60) * sp); });
+        L.pay.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, 140 + n++ * 60); });
       }
       if ((L.t === 'take' || L.t === 'take2') && L.g) {
-        L.g.forEach((k, i) => { const b = before['t-' + k]; if (b) setTimeout(() => fly(b.rect, target, b.html), i * 70 * sp); });
+        L.g.forEach((k, i) => { const b = before['t-' + k]; if (b) flyChip(b.rect, k, gemSpot(who, seat, k), i * 70); });
       }
     }
     if (L.returned) { // gems over the 10 limit go back
       let n = 0;
-      L.returned.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, ((prev.phase === 'main' ? 380 : 0) + n++ * 60) * sp); });
+      L.returned.forEach((x, k) => { const f = fromOf(k), to = $('#t-' + k); if (x > 0 && f && to) flyChip(f.rect, k, to, (prev.phase === 'main' ? 380 : 0) + n++ * 60); });
     }
+    return lead;
+  }
+  // a card that just appeared in the market is dealt from its deck: it slides off the stack face-down and turns over
+  function dealNew(before, lead) {
+    const news = [...vPlay.querySelectorAll('[data-dealt]')];
+    if (!news.length || !anim() || !document.body.animate) return;
+    news.forEach((el, n) => {
+      const l = Number(el.dataset.dealt), id = Number(el.dataset.card);
+      const deck = shown($('#deck-' + l)), from = deck ? deck.getBoundingClientRect() : before['d' + l] && before['d' + l].rect;
+      if (!from) return;
+      el.style.visibility = 'hidden';
+      fly(from, el, Art.card(id), { card: true, back: Art.back(l), flip: 'up', scale: 1, delay: lead + n * 70, ms: 520,
+        onDone: () => { el.style.visibility = ''; } });
+    });
   }
 
   // sounds + the effects that go with them (sfx.js decides what happened; switches live in Settings)
