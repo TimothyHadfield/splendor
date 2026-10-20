@@ -25,3 +25,21 @@
 - **Built:** `js/fx.js` (shared copy), `js/sfx.js` (view diff -> events), hooks in `js/app.js` (sounds, payment/return gem glides, count-up + "+N", error shake, turn flash, Animations off/Fast obeyed by existing flyers and CSS animations), Sound & effects panel in Settings (`index.html` styles). Map in progress.md.
 - **Verified:** `tests/fx.test.js` 13/13 (failed first: no sfx.js), engine 25 + online 6; Chromium e2e full game through taps (sounds, chimes, noble fanfare, win/lose), Sound off 0 played, Animations off 0 flyers/animations; phone-view 393 + desktop of Settings, mid-game, win with confetti; 0 console errors, no overflow.
 - **Open:** hear it on a real iPhone; two-browser online fx.
+
+## 2026-10-20 — table look (4cb5682)
+- **Asked** (via the manager): "looks almost identical to how the board or card layout looks like in real life ... like you're looking through a camera that is connected to a user's glasses". Also: fix stray cost digits on flying cards in WebKit.
+- **Built:**
+  - The play screen is now a wood table, seen from your seat (full description in progress.md). Changed `index.html` and `js/app.js`, plus copies of `_table` and fx.js 1.0.3.
+  - Physical deal, buy and reserve flights.
+  - Flights now redraw the card fresh instead of cloning it (that was the digit bug).
+  - Two read-only review rounds. Their fixes: the "me" panel box is gone; empty spots are bare wood; nobles sit in a row above level 3 on laptop; cards lie slightly off-square.
+- **Verified:**
+  - Tests: engine 25, fx 13 and online 6 all pass.
+  - The Chromium e2e full game passes.
+  - `flyshot.mjs` failed on the old build and passes now.
+  - `sizes.mjs` in WebKit, 5 states × 320/393/659-landscape/1280/1440: no overflow, no scroll, no clipping, no errors.
+  - Live check at 4cb5682.
+- **Open:**
+  - real iPhone
+  - the landscape seat placement
+  - larger cascades for your bought cards
