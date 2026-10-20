@@ -497,7 +497,7 @@
       v.market[l].forEach((id, i) => {
         if (id === null) { market += '<div class="slot empty"></div>'; return; }
         const t = E.turnsToAfford(me, id, v.bank);
-        const badge = showT ? '<span class="tta" style="color:' + (t === 0 ? 'var(--good)' : t === Infinity ? '#59607a' : heat(4 - t, 0, 3)) + '">' + (t === 0 ? '✓' : t === Infinity ? '—' : t) + '</span>' : '';
+        const badge = showT ? '<span class="tta' + (t === 0 ? ' now' : t === Infinity ? ' far' : '') + '" style="color:' + (t === 0 ? 'var(--good)' : t === Infinity ? '#59607a' : heat(4 - t, 0, 3)) + '">' + (t === 0 ? '✓' : t === Infinity ? '' : t) + '</span>' : '';
         const isNew = prev && prev.market[l][i] !== id;
         const sel = ui.sel && ui.sel.kind === 'card' && ui.sel.id === id;
         const hint = ui.hint && (ui.hint.t === 'buy' || ui.hint.t === 'reserve') && ui.hint.id === id;
@@ -539,11 +539,11 @@
     const meBox = '<div class="me' + (my ? ' turn' : '') + '" id="me-box"><div class="mine-info"><b id="my-pts">' + me.points + '</b>pts<br>' + sum(me.gems) + '/10</div>' + holds + res + '</div>';
 
     // action bar
-    const acts = '<div class="acts" id="acts">' + actionBar(v, seat, my) + '</div>';
+    const acts = '<div class="acts' + (my ? ' go' : '') + '" id="acts">' + actionBar(v, seat, my) + '</div>';
 
     // laptop side panel
-    const side = '<div id="g-side"><div class="panel scroll" style="flex:1.3">' + v.players.map((p, i) => i === seat ? '' : oppHTML(p, i)).join('') + '</div>' +
-      '<div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:6px"><span class="label">Log</span><div class="scroll" id="logbox"><ul class="log">' + logHTML(v, seat) + '</ul></div></div></div>';
+    const side = '<div id="g-side"><div class="panel scroll opp-box">' + v.players.map((p, i) => i === seat ? '' : oppHTML(p, i)).join('') + '</div>' +
+      '<div class="panel log-box" style="min-height:0;display:flex;flex-direction:column;gap:6px"><span class="label">Log</span><div class="scroll" id="logbox"><ul class="log">' + logHTML(v, seat) + '</ul></div></div></div>';
 
     vPlay.innerHTML = '<div id="game">' + status + nobles + market + bank + meBox + acts + side + '</div>';
     fitMarket();
@@ -551,7 +551,7 @@
     if (prev) animateMove(prev, v, before, seat);
     ui.prev = v;
     scheduleBot();
-    if (v.over && !ui.endShown) { ui.endShown = true; setTimeout(() => showEnd(v, seat), 900); }
+    if (v.over && !ui.endShown) { ui.endShown = true; setTimeout(() => { if (ui.tab === 'play') showEnd(v, seat); else ui.endShown = false; }, 900); }
     if (!v.over) ui.endShown = false;
   }
 
@@ -560,7 +560,14 @@
     const m = $('.market');
     if (!m) return;
     const gap = parseFloat(getComputedStyle(m).rowGap) || 6;
-    const h = (m.clientHeight - 2 * gap) / 3, w = (m.clientWidth - 4 * gap) / 5;
+    const h = (m.clientHeight - 2 * gap) / 3;
+    let w = (m.clientWidth - 4 * gap) / 5;
+    const g = $('#game'), side = $('#g-side');
+    if (g && side && side.offsetWidth) { // laptop: the market column sizes to its cards, so measure the room around it
+      const nb = $('.nobles'), bk = $('.bank');
+      const room = g.clientWidth - side.offsetWidth - (nb ? nb.offsetWidth : 0) - (bk ? bk.offsetWidth : 0) - 6 * 14;
+      w = (room - 4 * gap) / 5;
+    }
     m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h, w * 1.4))) + 'px');
   }
   window.addEventListener('resize', fitMarket);
@@ -873,11 +880,11 @@
     const lost = mine.reduce((s, r) => s + (r.lost || 0), 0);
     const head = '<div class="s-head panel"><div class="row"><span class="label grow">' + (live ? 'This game so far' : 'Your last game') + '</span>' +
       qBtn('Each move is compared with what the Hard computer would play from the same spot. "Points lost" is how much worse the position scores by the Hard computer’s yardstick (points now plus how close your next good cards are), in prestige points.') + '</div>' +
-      '<div class="sum"><span><span class="big" style="color:' + heat(matched, 30, 80) + '">' + matched + '%</span> matched Hard</span><span><span class="big" style="color:' + heat(-lost, -12, 0) + '">' + lost.toFixed(1) + '</span> points lost</span><span class="muted small">' + mine.length + ' moves</span></div></div>';
+      '<div class="sum"><span><span class="big" style="color:' + (mine.length ? heat(matched, 30, 80) : 'var(--muted)') + '">' + (mine.length ? matched + '%' : '–') + '</span> matched Hard</span><span><span class="big" style="color:' + (mine.length ? heat(-lost, -12, 0) : 'var(--muted)') + '">' + (mine.length ? lost.toFixed(1) : '–') + '</span> points lost</span><span class="muted small">' + mine.length + ' moves</span></div></div>';
     const chart = '<div class="s-chart panel"><span class="label">Points race</span><div class="chart race">' + raceSVG(src) + '</div>' +
       '<div class="row small" style="flex-wrap:wrap">' + src.players.map((p, i) => '<span><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + SEAT_COL[i] + '"></span> ' + esc(p.name) + ' ' + p.points + '</span>').join('') + '</div></div>';
     const rows = mine.map(r => '<tr><td class="n">' + (Math.floor(r.t / src.players.length) + 1) + '</td><td>' + esc(r.did) + '</td><td>' + (r.same ? '<span class="ok">Same</span>' : esc(r.best)) + '</td><td class="n" style="color:' + (r.same ? 'var(--good)' : heat(-(r.lost || 0), -2, 0)) + '">' + (r.same ? '0' : r.lost === null ? '–' : r.lost.toFixed(1)) + '</td></tr>').join('');
-    const list = '<div class="s-list scroll"><table class="turns"><tr><th>Rd</th><th>You</th><th>Hard</th><th>Lost</th></tr>' + rows + '</table></div>';
+    const list = !mine.length ? '<div class="s-list"></div>' : '<div class="s-list scroll"><table class="turns"><tr><th>Rd</th><th>You</th><th>Hard</th><th>Lost</th></tr>' + rows + '</table></div>';
     vStudy.innerHTML = '<div class="study">' + head + chart + list + '</div>';
   }
   function raceSVG(src) {

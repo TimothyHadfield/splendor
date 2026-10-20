@@ -108,21 +108,32 @@
       y -= 23;
     }
     return `<svg class="${cls || 'card'}" viewBox="0 0 100 140" aria-label="Level ${c.level} ${C.COLORS[c.bonus]} card, ${c.points} points">
+      <defs><linearGradient id="cs${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0b0d14" stop-opacity=".55"/><stop offset="1" stop-color="#0b0d14" stop-opacity="0"/></linearGradient>
+        <linearGradient id="ch${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
       <rect x="1" y="1" width="98" height="138" rx="9" fill="#f3ead6" stroke="${LV_COL[c.level - 1]}" stroke-width="2.5"/>
       <g><svg x="3" y="30" width="94" height="106" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">${scene(c)}</svg></g>
-      <rect x="3" y="3" width="94" height="28" rx="7" fill="${ink}" opacity=".93"/>
+      <rect x="3" y="30" width="30" height="106" fill="url(#cs${id})"/>
+      <rect x="3" y="3" width="94" height="28" rx="7" fill="${ink}" opacity=".95"/>
+      <rect x="3" y="3" width="94" height="28" rx="7" fill="url(#ch${id})"/>
+      <line x1="3" y1="30.5" x2="97" y2="30.5" stroke="rgba(0,0,0,.35)" stroke-width="1"/>
       ${c.points ? `<text x="9" y="25.5" font-size="25" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="2.4" paint-order="stroke">${c.points}</text>` : ''}
       <g transform="translate(66 1) scale(.32)">${gemShape(c.bonus)}</g>
       ${costs}</svg>`;
   }
+  // card back: a lattice of facets in the level colour, a framed medallion and the level's dots
   function back(level, cls) {
     const col = LV_COL[level - 1];
+    const pid = 'bk' + (uid++);
     let dots = '';
-    for (let i = 0; i < level; i++) dots += `<circle cx="${50 + (i - (level - 1) / 2) * 16}" cy="70" r="5.5" fill="#f3ead6"/>`;
+    for (let i = 0; i < level; i++) dots += `<circle cx="${50 + (i - (level - 1) / 2) * 15}" cy="70" r="5" fill="#f3ead6" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`;
     return `<svg class="${cls || 'card'}" viewBox="0 0 100 140" aria-label="Level ${level} deck">
-      <rect x="1" y="1" width="98" height="138" rx="9" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>
-      <rect x="9" y="9" width="82" height="122" rx="6" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-dasharray="4 4"/>
-      <circle cx="50" cy="70" r="26" fill="rgba(0,0,0,.18)"/>${dots}</svg>`;
+      <defs><pattern id="${pid}" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M7 0 L14 7 L7 14 L0 7 Z" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1"/></pattern>
+        <linearGradient id="${pid}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient></defs>
+      <rect x="1" y="1" width="98" height="138" rx="9" fill="${col}" stroke="rgba(0,0,0,.4)" stroke-width="2"/>
+      <rect x="1" y="1" width="98" height="138" rx="9" fill="url(#${pid})"/>
+      <rect x="1" y="1" width="98" height="138" rx="9" fill="url(#${pid}g)"/>
+      <rect x="7" y="7" width="86" height="126" rx="6" fill="none" stroke="rgba(243,234,214,.55)" stroke-width="1.6"/>
+      <polygon points="50,38 78,70 50,102 22,70" fill="rgba(0,0,0,.22)" stroke="rgba(243,234,214,.7)" stroke-width="1.6"/>${dots}</svg>`;
   }
   // noble tile (100 x 100): 3 points, requirement chips, a crowned figure
   function noble(nid, cls) {
