@@ -612,8 +612,8 @@
     let w = (m.clientWidth - 4 * gap) / 5;
     const g = $('#game'), side = $('#g-side');
     if (g && side && side.offsetWidth) { // laptop: the market column sizes to its cards, so measure the room around it
-      const bk = $('.bank');
-      const room = g.clientWidth - side.offsetWidth - (bk ? bk.offsetWidth : 0) - 6 * 14;
+      const bk = $('.bank'), nb = $('.nobles');
+      const room = g.clientWidth - side.offsetWidth - (bk ? bk.offsetWidth : 0) - (nb ? nb.offsetWidth : 0) - 7 * 14;
       w = (room - 4 * gap) / 5;
     }
     m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h, w * 1.4))) + 'px');

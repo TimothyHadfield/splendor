@@ -100,12 +100,13 @@
   function card(id, cls) {
     const c = C.CARDS[id];
     const ink = c.bonus === 0 ? '#e9edf5' : PAL[c.bonus][0];
-    let costs = '', y = 132;
+    // cost dots: big enough that the numbers read on a phone (up to 4 colours fit between the header and the edge)
+    let costs = '', y = 136;
     for (let k = 4; k >= 0; k--) {
       if (!c.cost[k]) continue;
-      costs += `<circle cx="14" cy="${y - 10}" r="10.5" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
-        <text x="14" y="${y - 5.6}" text-anchor="middle" font-size="13.5" font-weight="800" fill="${k === 0 ? '#222' : '#fff'}" stroke="${k === 0 ? 'none' : 'rgba(0,0,0,.5)'}" stroke-width=".6">${c.cost[k]}</text>`;
-      y -= 23;
+      costs += `<circle cx="16" cy="${y - 13}" r="13" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
+        <text x="16" y="${y - 6.6}" text-anchor="middle" font-size="19" font-weight="850" fill="${k === 0 ? '#222' : '#fff'}" stroke="${k === 0 ? 'none' : 'rgba(0,0,0,.5)'}" stroke-width=".7">${c.cost[k]}</text>`;
+      y -= 26.5;
     }
     return `<svg class="${cls || 'card'}" viewBox="0 0 100 140" aria-label="Level ${c.level} ${C.COLORS[c.bonus]} card, ${c.points} points">
       <defs><linearGradient id="cs${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0b0d14" stop-opacity=".55"/><stop offset="1" stop-color="#0b0d14" stop-opacity="0"/></linearGradient>
@@ -138,12 +139,12 @@
   // noble tile (100 x 100): 3 points, requirement chips, a crowned figure
   function noble(nid, cls) {
     const n = C.NOBLES[nid];
-    let req = '', y = 8;
+    let req = '', y = 5;
     for (let k = 0; k < 5; k++) {
       if (!n.req[k]) continue;
-      req += `<rect x="6" y="${y}" width="22" height="26" rx="4" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
-        <text x="17" y="${y + 19}" text-anchor="middle" font-size="17" font-weight="850" fill="${k === 0 ? '#222' : '#fff'}">${n.req[k]}</text>`;
-      y += 30;
+      req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
+        <text x="18" y="${y + 21.5}" text-anchor="middle" font-size="23" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${n.req[k]}</text>`;
+      y += 30.5;
     }
     const hue = ['#7a4a8a', '#3d6a8a', '#8a5a3a', '#4a7a5a', '#8a3d4f'][nid % 5];
     return `<svg class="${cls || 'noble'}" viewBox="0 0 100 100" aria-label="Noble, 3 points">
@@ -158,11 +159,14 @@
   // city tile (Cities variant): prestige needed + bonuses needed; grey squares = "any one colour" / "one other colour"
   function city(cid, cls) {
     const c = C.CITIES[cid];
-    let req = '', x = 6;
+    // squares as wide as the tile allows (up to 5 fit), numbers as big as the square
+    const n = c.req.filter(v => v).length + (c.same ? 1 : 0) + (c.other ? 1 : 0);
+    const step = Math.min(23, 94 / n), w = +(step - 2).toFixed(1), fs = Math.min(21, Math.round(w * 1.05));
+    let req = '', x = 3;
     const sq = (fill, stroke, txt, ink, mark) => {
-      const r = `<rect x="${x}" y="64" width="20" height="26" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
-        <text x="${x + 10}" y="82" text-anchor="middle" font-size="15" font-weight="850" fill="${ink}">${txt}</text>` + (mark ? `<text x="${x + 10}" y="60" text-anchor="middle" font-size="10" font-weight="800" fill="#5a4a2a">${mark}</text>` : '');
-      x += 23; return r;
+      const r = `<rect x="${x.toFixed(1)}" y="64" width="${w}" height="31" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="2"/>
+        <text x="${(x + w / 2).toFixed(1)}" y="${86 - (21 - fs) / 3}" text-anchor="middle" font-size="${fs}" font-weight="900" fill="${ink}">${txt}</text>` + (mark ? `<text x="${(x + w / 2).toFixed(1)}" y="60" text-anchor="middle" font-size="10" font-weight="800" fill="#5a4a2a">${mark}</text>` : '');
+      x += step; return r;
     };
     for (let k = 0; k < 5; k++) if (c.req[k]) req += sq(PAL[k][0], PAL[k][3], c.req[k], k === 0 ? '#222' : '#fff');
     if (c.same) req += sq('#8d8d99', '#55555f', c.same, '#fff', 'same');

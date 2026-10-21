@@ -225,16 +225,18 @@
   .acts .btn { min-height: 40px; padding: 0 13px; }
 
   @media (min-width: 900px) {
+    /* the nobles stand in a column left of the cards (where the wood was empty), so the cards get the height */
     #game { grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr) 300px; column-gap: 14px; row-gap: 10px;
-      grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-      grid-template-areas: "status status status status status side" ". . nobles . . side" ". . market bank . side" ". me me me . side" ". acts acts acts . side"; }
+      grid-template-rows: auto minmax(0, 1fr) auto auto;
+      grid-template-areas: "status status status status status side" ". nobles market bank . side" ". me me me . side" ". acts acts acts . side"; }
     .status, .me, .acts { contain: inline-size; }
     .market { gap: 10px; }
     .mrow { gap: 10px; }
-    .nobles { height: 68px; gap: 10px; }
-    .ntiles { gap: 10px; }
-    .nobles .noble { width: 68px; height: 68px; }
-    .nobles .rnd { font-size: 13px; }
+    .nobles { height: auto; gap: 12px; flex-direction: column; justify-content: center; align-self: center; }
+    .ntiles { gap: 10px; flex-direction: column; }
+    .nobles .noble { width: max(52px, min(84px, calc((100dvh - 440px) / 5))); height: auto; aspect-ratio: 1; }
+    .nobles .rnd { font-size: 13px; margin: 0; text-align: center; }
+    .ntiles .small.muted { max-width: 90px; text-align: center; }
     .nobles .rnd b { font-size: 16px; }
     .bank { flex-direction: column; height: auto; align-self: center; gap: 6px; }
     .tok { width: 50px; height: 62px; }
@@ -252,11 +254,17 @@
     .onob { min-width: 16px; height: 16px; font-size: 11px; line-height: 14px; }
     .otab { height: 48px; gap: 8px; }
     .ocols { flex: none; max-width: none; gap: 3px; }
-    .seat .ccol { flex: none; width: 24px; --cwmax: 24px; }
-    .seat .ccol .cn { font-size: 10px; line-height: 12px; min-width: 12px; }
+    .seat .ccol { flex: none; width: 24px; max-width: none; --cwmax: 24px; }
+    /* three opponents: the seats are narrower, so their held cards sit as backs on the name plate */
+    .seats-row.n3 .seat .ccol { width: 22px; --cwmax: 22px; }
+    .seats-row.n3 .hand-lp { display: none; }
+    .seats-row.n3 .hand-ph { display: inline-flex; padding-left: 6px; }
+    .seats-row.n3 .hand-ph .hb { width: 13px; height: 18px; margin-left: -7px; }
+    .seats-row.n3 .hand-ph .hb:first-child { margin-left: 0; }
+    .seat .ccol .cn { font-size: 12px; line-height: 14px; min-width: 14px; }
     .ogems { display: flex; gap: 2px; align-items: flex-end; height: 100%; }
-    .og { position: relative; width: 17px; height: 23px; --rise: 1.5px; }
-    .og b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
+    .og { position: relative; width: 20px; height: 26px; --rise: 1.5px; }
+    .og b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
     .og.zero .stk, .og.zero b { visibility: hidden; }
     .hand-lp { display: flex; margin-left: auto; height: 100%; align-items: flex-end; }
     .hand-lp .hc { height: 46px; aspect-ratio: 100 / 140; margin-left: -14px; display: block; }
@@ -395,8 +403,37 @@
   .fx-fast .sheet { animation-duration: .11s; }
   .ver { color: #59607a; font-size: 12px; text-align: center; }
   .ver a { color: #59607a; }
-  @media (max-height: 700px) and (max-width: 899px) { .nobles { height: 40px; } .nobles .noble { width: 40px; height: 40px; } .otab { height: 22px; } }
+  @media (max-height: 700px) and (max-width: 899px) { .nobles { height: 42px; } .nobles .noble { width: 42px; height: 42px; } .otab { height: 22px; } }
   @media (max-width: 360px) { .tok { width: 38px; height: 50px; } .htok { max-width: 26px; } .icon-btn { width: 28px; } .seats-row.n3 .plate .pts { font-size: 12.5px; } .status { gap: 4px; } }
+  /* phone: the cards get the room. Thinner bands between the table parts; opponents show their gem colours on a
+     second line (2-3 opponents) and bigger card counts */
+  @media (max-width: 899px) {
+    #v-play.on-table { padding: 5px 10px 4px; }
+    #game { gap: 4px; }
+    .market, .mrow { gap: 4px; }
+    .bank { height: 50px; } .tok { width: 40px; height: 48px; }
+    .me { height: 90px; padding: 3px 7px; } .me .ccol { height: 50px; }
+    .seat .ccol .cn { font-size: 11px; line-height: 12px; min-width: 12px; padding: 0 2px; }
+    .seats-row.n2 .otab, .seats-row.n3 .otab { flex-wrap: wrap; height: auto; row-gap: 2px; }
+    .seats-row.n2 .ocols, .seats-row.n3 .ocols { height: 24px; flex: 0 0 auto; width: min(100%, 92px); max-width: none; }
+    .seats-row.n2 .gtot, .seats-row.n3 .gtot { display: none; }
+    .seats-row.n2 .ogems, .seats-row.n3 .ogems { display: flex; width: 100%; height: 16px; gap: 2px; justify-content: space-between; max-width: 120px; }
+    .seats-row.n2 .og, .seats-row.n3 .og { position: relative; flex: 0 1 16px; min-width: 0; height: 16px; --rise: 0px; }
+    .seats-row.n2 .og .stk .st:not(:last-child), .seats-row.n3 .og .stk .st:not(:last-child) { display: none; }
+    .seats-row.n2 .og .st, .seats-row.n3 .og .st { bottom: 0; }
+    .seats-row.n2 .og b, .seats-row.n3 .og b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
+    .seats-row.n2 .og.zero .stk, .seats-row.n2 .og.zero b, .seats-row.n3 .og.zero .stk, .seats-row.n3 .og.zero b { visibility: hidden; }
+  }
+  /* short phones held upright (iPhone SE): the cards are limited by height and the row has spare width, so the bank
+     stands in a column beside the cards */
+  @media (max-width: 899px) and (max-height: 620px) and (orientation: portrait) {
+    #game { grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+      grid-template-areas: "status status" "nobles nobles" "market bank" "me me" "acts acts"; }
+    .bank { flex-direction: column; height: auto; align-self: center; gap: 2px; }
+    .tok { width: 34px; height: 33px; --rise: 1px; }
+    .tok .n { min-width: 17px; height: 17px; font-size: 11px; right: -6px; }
+    .bank .side { margin: 0; font-size: 0; text-align: center; line-height: 0; } .bank .side .q { font-size: 11px; width: 18px; height: 18px; }
+  }
   /* one opponent on a phone: room for their gem stacks too */
   @media (max-width: 899px) {
     .seats-row.n1 .ogems { display: flex; gap: 2px; align-items: flex-end; height: 100%; margin-left: 6px; }
@@ -427,13 +464,13 @@
   /* phone on its side: the other players along the far edge as at a real table, the cards below on the left,
      nobles, bank, your place and the buttons on the right */
   @media (max-height: 500px) and (min-width: 560px) and (max-width: 899px) {
-    #game { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 8px; row-gap: 4px;
+    #game { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); column-gap: 8px; row-gap: 4px;
       grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-      grid-template-areas: "status status" "market nobles" "market bank" "market me" "market acts"; }
+      grid-template-areas: "market status" "market nobles" "market bank" "market me" "market acts"; }
     .me { height: 84px; } .me .ccol { height: 46px; }
     .otab { height: 22px; }
     .view.on-table { padding: 6px 10px; }
-    .nobles { height: 36px; } .nobles .noble { width: 36px; height: 36px; }
+    .nobles { height: 42px; } .nobles .noble { width: 42px; height: 42px; }
     .market { gap: 4px; } .mrow { gap: 4px; }
     .bank { height: 54px; gap: 3px; } .tok { width: 40px; height: 52px; }
     .bank .side { font-size: 0; } .bank .side .q { font-size: 12px; }
@@ -441,6 +478,9 @@
   }
   /* small phone on its side (iPhone SE: 568 x 320) */
   @media (max-height: 360px) and (min-width: 560px) and (max-width: 899px) {
+    /* too short for the opponents in the right column: they go back across the whole far edge */
+    #game { grid-template-areas: "status status" "market nobles" "market bank" "market me" "market acts"; }
+    .seats-row.n2 .ogems, .seats-row.n3 .ogems { display: none; } .seats-row.n2 .gtot, .seats-row.n3 .gtot { display: inline-flex; }
     .nobles { height: 28px; } .nobles .noble { width: 28px; height: 28px; } .nobles .rnd { font-size: 11px; }
     .bank { height: 44px; } .tok { width: 34px; height: 44px; } .tok .n { min-width: 16px; height: 16px; font-size: 10px; }
     .me { height: 70px; padding: 3px 5px; } .me .ccol { height: 36px; } .htok { max-width: 22px; } .htok b { font-size: 11px; }
@@ -469,10 +509,10 @@
 <script src="js/bots.js?v=1"></script>
 <script src="js/strength-data.js?v=1"></script>
 <script src="js/online-game.js?v=1"></script>
-<script src="js/art.js?v=2"></script>
+<script src="js/art.js?v=3"></script>
 <script src="js/fx.js?v=2"></script>
 <script src="js/table.js?v=1"></script>
 <script src="js/sfx.js?v=1"></script>
-<script src="js/app.js?v=8"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>
