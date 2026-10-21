@@ -8,7 +8,8 @@ const { CARDS, NOBLES } = Cards;
 const sum = a => a.reduce((s, x) => s + x, 0);
 
 let pass = 0;
-function t(label, fn) { fn(); pass++; console.log('  PASS  ' + label); }
+let fail = 0;
+function t(label, fn) { try { fn(); pass++; console.log('  PASS  ' + label); } catch (e) { fail++; console.log('  FAIL  ' + label + ' :: ' + e.message.split(String.fromCharCode(10))[0]); } }
 
 // ------------------------------------------------------------------ game facts
 t('90 development cards: 40 / 30 / 20 by level, 8 / 6 / 4 per colour per level', () => {
@@ -372,4 +373,90 @@ t('views: no deck order; others see only the level of your blind reserves', () =
   assert.ok(!pub.includes('"id":' + secret));
 });
 
-console.log(pass + ' passed');
+// ------------------------------------------------------------------ weird cases (edge pass, 2026-10-20)
+const fresh = (n, seed) => { const s = E.setup(n || 2, {}, mulberry(seed || 3), ['A', 'B', 'C', 'D']); s.turn = 0; s.start = 0; return s; };
+t('edge: reserving an EMPTY market spot (id null) is refused, never a phantom card', () => {
+  const s = fresh(); s.market[0][1] = null; s.decks[0] = [];
+  assert.throws(() => E.apply(s, 0, { t: 'reserve', id: null }), /not on the table/);
+  assert.throws(() => E.apply(s, 0, { t: 'reserve', id: '3' }), /not on the table/);
+});
+t('edge: odd deck numbers (1.5, 4, -1, "x") give a clear message, not a crash', () => {
+  const s = fresh();
+  for (const d of [1.5, 4, -1, 'x']) assert.throws(() => E.apply(s, 0, { t: 'reserve', deck: d }), /deck/i);
+});
+t('edge: names are trimmed, blank names get a default, and an emoji is never cut in half', () => {
+  const s = E.setup(3, {}, mulberry(1), ['x'.repeat(23) + '😀', '   ', '  Ann  ']);
+  assert.equal(s.players[0].name, 'x'.repeat(23) + '😀');
+  assert.equal(s.players[1].name, 'Player 2');
+  assert.equal(s.players[2].name, 'Ann');
+  const t2 = E.setup(2, {}, mulberry(1), ['y'.repeat(24) + '😀z', 'b']);
+  assert.ok(!/[\ud800-\udbff]$/.test(t2.players[0].name));
+});
+t('edge: three nobles qualify at once -> you choose one; the other two stay', () => {
+  const s = fresh(3); s.nobles = [0, 1, 2, 3];
+  const need = [0, 1, 2].map(i => NOBLES[i].req);
+  const p = s.players[0];
+  p.bonus = [0, 1, 2, 3, 4].map(k => Math.max(...need.map(r => r[k])));
+  s.bank = [5, 5, 5, 5, 5, 5];
+  const a = E.apply(s, 0, { t: 'take', g: [0, 1, 2] });
+  assert.equal(a.phase, 'noble'); assert.deepEqual(a.nobleChoice.slice().sort(), [0, 1, 2]);
+  const b = E.apply(a, 0, { t: 'noble', id: 1 });
+  assert.deepEqual(b.players[0].nobles, [1]); assert.deepEqual(b.nobles.slice().sort(), [0, 2, 3]); assert.equal(b.turn, 1);
+});
+t('edge: over 10 with gold just taken -> you may hand back the gold; a noble still visits after returning', () => {
+  const s = fresh(); const p = s.players[0];
+  p.gems = [3, 3, 2, 2, 0, 0]; s.bank = [1, 1, 2, 2, 4, 5];
+  s.nobles = [0]; p.bonus = NOBLES[0].req.slice();
+  const a = E.apply(s, 0, { t: 'reserve', id: s.market[0][0] });
+  assert.equal(a.phase, 'discard');
+  const b = E.apply(a, 0, { t: 'discard', g: [0, 0, 0, 0, 0, 1] });
+  assert.equal(b.players[0].gems[5], 0); assert.equal(b.bank[5], 5); assert.deepEqual(b.players[0].nobles, [0]);
+});
+t('edge: only 2 colours left -> take exactly those 2; only 1 left with fewer than 4 -> take 1; none left -> no take', () => {
+  const s = fresh(); s.bank = [0, 2, 0, 3, 0, 5];
+  assert.throws(() => E.apply(s, 0, { t: 'take', g: [1] }), /3 different/);
+  assert.deepEqual(E.apply(s, 0, { t: 'take', g: [1, 3] }).players[0].gems.slice(0, 5), [0, 1, 0, 1, 0]);
+  s.bank = [0, 0, 0, 3, 0, 5];
+  assert.equal(E.apply(s, 0, { t: 'take', g: [3] }).players[0].gems[3], 1);
+  assert.throws(() => E.apply(s, 0, { t: 'take2', c: 3 }), /4/);
+  s.bank = [0, 0, 0, 0, 0, 5];
+  assert.ok(!E.legal(s, 0).some(a => a.t === 'take' || a.t === 'take2'));
+});
+t('edge: a bought card from an empty deck leaves a gap; the gap cannot be bought or reserved', () => {
+  const s = fresh(); s.decks[0] = [];
+  const p = s.players[0]; p.gems = [4, 4, 4, 4, 4, 0];
+  const id = s.market[0][0];
+  const a = E.apply(s, 0, { t: 'buy', id });
+  assert.equal(a.market[0][0], null);
+  assert.ok(!E.legal(a, a.turn).some(x => x.id === null && !x.deck));
+});
+t('edge: nobody can move for a whole round -> the game ends (no endless passing), most points wins', () => {
+  const s = fresh(); s.bank = [0, 0, 0, 0, 0, 0]; s.decks = [[], [], []];
+  s.players.forEach(p => { p.gems = [0, 0, 0, 0, 0, 0]; p.reserved = [0, 1, 2].map(i => ({ id: s.market[0][i], blind: false })); });
+  s.market = [[null, null, null, s.market[0][3]], [null, null, null, null], [null, null, null, null]];
+  s.players[1].points = 4;
+  assert.deepEqual(E.legal(s, 0), [{ t: 'pass' }]);
+  const a = E.apply(s, 0, { t: 'pass' }); assert.equal(a.over, false);
+  const b = E.apply(a, 1, { t: 'pass' }); assert.equal(b.over, true); assert.deepEqual(b.result.winners, [1]);
+});
+t('edge: the LAST seat reaching 15 ends the game at once (the round is already complete)', () => {
+  const s = fresh(3); s.turn = 2; s.players[2].points = 14; s.players[2].gems = [2, 2, 2, 2, 2, 0]; s.players[2].bonus = [3, 3, 3, 3, 3];
+  const id = s.market[0].find(x => CARDS[x].points === 1) != null ? s.market[0].find(x => CARDS[x].points === 1) : null;
+  const card = id !== null ? id : s.market[1][0];
+  const a = E.apply(s, 2, { t: 'buy', id: card });
+  assert.equal(a.over, true); assert.deepEqual(a.result.winners, [2]);
+});
+t('edge: Cities — two players take cities in the same round -> the one with more points wins', () => {
+  const s = E.setup(2, { cities: true }, mulberry(5), ['A', 'B']); s.turn = 0; s.start = 0;
+  const [c1, c2] = s.cities;
+  s.players[0].cities = [c1]; s.cities = s.cities.filter(x => x !== c1); s.finalRound = true; s.turns = 1; s.turn = 1;
+  s.players[0].points = 13; s.players[1].points = 16;
+  const C = Cards.CITIES[c2]; s.players[1].bonus = [0, 1, 2, 3, 4].map(k => Math.max(C.req[k], C.same || 0, C.other || 0));
+  s.players[1].points = Math.max(16, C.pts);
+  s.bank = [4, 4, 4, 4, 4, 5];
+  const a = E.apply(s, 1, { t: 'take', g: [0, 1, 2] });
+  assert.equal(a.over, true); assert.deepEqual(a.players[1].cities.length, 1); assert.deepEqual(a.result.winners, [1]);
+});
+
+console.log(pass + ' passed' + (fail ? ', ' + fail + ' FAILED' : ''));
+if (fail) process.exit(1);

@@ -127,17 +127,16 @@
   .gtot { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 2px; font-size: 11.5px; font-weight: 750; color: #e9dcc0; font-variant-numeric: tabular-nums; padding-bottom: 2px; }
   .gtot i { width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6c8, #c99a1f 60%); box-shadow: 0 1px 1px rgba(0,0,0,.5); }
 
-  /* a column of bought cards: each card shows its top edge, the front one says how many */
-  .ccol { position: relative; flex: 1 1 0; min-width: 0; height: 100%; --mcw: 13px; --mch: 18px; --sl: 3px; }
-  .ccol .mc { position: absolute; left: 50%; transform: translateX(-50%); width: min(var(--mcw), 100%); height: var(--mch); bottom: calc(var(--i) * var(--sl));
-    border-radius: 3px; border: 1px solid #f3ead6; box-sizing: border-box; overflow: hidden;
-    background: linear-gradient(rgba(255,255,255,.28), rgba(255,255,255,0) 30%), linear-gradient(var(--c) 0 30%, rgba(0,0,0,.3) 30% 31%, var(--c2) 31%);
-    box-shadow: 0 1px 2px rgba(0,0,0,.55); }
-  .ccol .mc .mg { position: absolute; right: 1px; top: 0; width: 42%; height: 30%; display: none; }
-  .ccol .mc .mg svg { width: 100%; height: 100%; display: block; }
-  .ccol .mc b { position: absolute; left: 0; right: 0; top: 30%; bottom: 0; display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 900; color: var(--ink); text-shadow: 0 0 2px rgba(0,0,0,.35); font-variant-numeric: tabular-nums; }
-  .ccol.none .mc.spot { bottom: 0; background: none; border: 0; box-shadow: none; }
+  /* a column of bought cards: the real cards overlapping, each shifted down so its top band shows (newest in front).
+     --cw = card width (the column's width, up to --cwmax); a band is 28% of the width; a long column closes up so the
+     front card's band still shows; the bottom of the column tucks under the gem chips. */
+  .ccol { position: relative; flex: 1 1 0; min-width: 0; height: 100%; container-type: size; overflow: hidden; --cwmax: 15px; }
+  .ccol .rc { position: absolute; left: 50%; translate: -50% 0; width: min(100cqw, var(--cwmax)); aspect-ratio: 100 / 140;
+    top: calc(var(--i) * min(min(100cqw, var(--cwmax)) * .28, (100cqh - min(100cqw, var(--cwmax)) * .42) / var(--m))); }
+  .ccol .rc svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.55)); }
+  .ccol .cn { position: absolute; left: 50%; bottom: 1px; translate: -50% 0; z-index: 2; min-width: 15px; padding: 0 3px; border-radius: 7px;
+    background: rgba(8,10,16,.78); color: #fff; font-size: 10.5px; line-height: 14px; font-weight: 850; text-align: center; font-variant-numeric: tabular-nums; }
+  .seat .ccol .cn { font-size: 8.5px; line-height: 10px; min-width: 10px; padding: 0 2px; border-radius: 4px; bottom: 0; }
 
   /* gem chips in stacks: each chip a little higher than the one under it */
   .stk { position: absolute; inset: 0; display: block; }
@@ -188,14 +187,13 @@
   .bank .side { margin-left: auto; align-self: center; text-align: right; font-size: 11.5px; color: #d9cbb0; line-height: 1.2; }
 
   /* your edge of the table: card columns, gem stacks, nobles won, reserved cards in hand */
-  .me { grid-area: me; display: flex; gap: 8px; align-items: stretch; padding: 5px 7px; height: 86px; }
+  .me { grid-area: me; display: flex; gap: 8px; align-items: stretch; padding: 5px 7px; height: 100px; }
   .me.turn .mine-info b { color: var(--accent-warm); }
   .holds { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; flex: 1; min-width: 0; }
-  .hold { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
+  .hold { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0; min-width: 0; }
   .hold.ret { cursor: pointer; }
-  .me .ccol { flex: none; width: 100%; height: 38px; --mcw: 20px; --mch: 26px; --sl: 4px; }
-  .me .ccol .mc .mg { display: block; }
-  .me .ccol .mc b { font-size: 13px; }
+  .me .ccol { flex: none; width: 100%; height: 58px; --cwmax: 40px; }
+  .me .htok { margin-top: -6px; z-index: 1; } /* the gem chips sit in front of the cards */
   .nobcol { display: flex; align-items: flex-end; justify-content: center; }
   .nobcol .mnob { width: 28px; height: 28px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
   .nobcol .nn { position: absolute; right: -2px; top: 4px; background: #0f1117; border-radius: 7px; font-size: 10px; padding: 0 4px; line-height: 14px; }
@@ -209,7 +207,7 @@
   .mine-info b { font-size: 20px; color: #fff; font-variant-numeric: tabular-nums; }
   .res { display: flex; gap: 4px; align-items: center; flex: none; }
   .res.hand { width: 96px; justify-content: center; }
-  .hand .slot { height: 58px; margin-left: -16px; transform-origin: 50% 100%; }
+  .hand .slot { height: 58px; margin-left: -19px; transform-origin: 50% 100%; }
   .hand .slot:first-child { margin-left: 0; }
   .hand.n1 .slot { rotate: -4deg; }
   .hand.n2 .slot:nth-child(1) { rotate: -5deg; } .hand.n2 .slot:nth-child(2) { rotate: 5deg; }
@@ -254,9 +252,8 @@
     .onob { min-width: 16px; height: 16px; font-size: 11px; line-height: 14px; }
     .otab { height: 48px; gap: 8px; }
     .ocols { flex: none; max-width: none; gap: 3px; }
-    .seat .ccol { flex: none; width: 21px; --mcw: 21px; --mch: 29px; --sl: 5px; }
-    .seat .ccol .mc .mg { display: block; }
-    .seat .ccol .mc b { font-size: 12.5px; }
+    .seat .ccol { flex: none; width: 24px; --cwmax: 24px; }
+    .seat .ccol .cn { font-size: 10px; line-height: 12px; min-width: 12px; }
     .ogems { display: flex; gap: 2px; align-items: flex-end; height: 100%; }
     .og { position: relative; width: 17px; height: 23px; --rise: 1.5px; }
     .og b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; }
@@ -264,23 +261,29 @@
     .hand-lp { display: flex; margin-left: auto; height: 100%; align-items: flex-end; }
     .hand-lp .hc { height: 46px; aspect-ratio: 100 / 140; margin-left: -14px; display: block; }
     .hand-lp .hc:first-child { margin-left: 0; }
+    .hand-lp .hc { transform-origin: 50% 100%; }
+    .hand-lp .hc:first-child:not(:last-child) { rotate: -8deg; } .hand-lp .hc:last-child:not(:first-child) { rotate: 8deg; }
     .hand-lp .hc svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
     .icon-btn { width: 40px; }
     .me { height: 112px; padding: 6px 10px; gap: 12px; }
     .holds { max-width: 440px; }
     .res.hand { margin-left: auto; }
     .mine-info { min-width: 52px; font-size: 12px; } .mine-info b { font-size: 26px; }
-    .me .ccol { height: 54px; --mcw: 28px; --mch: 39px; --sl: 5px; }
-    .me .ccol .mc b { font-size: 16px; }
+    .me .ccol { height: 60px; --cwmax: 46px; }
+    .me .ccol .cn { font-size: 12px; line-height: 16px; }
     .nobcol .mnob { width: 38px; height: 38px; }
     .htok { max-width: 38px; } .htok b { font-size: 15px; }
     .res.hand { width: 150px; }
-    .hand .slot { height: 92px; margin-left: -20px; }
+    .hand .slot { height: 92px; margin-left: -30px; }
     .acts .say { font-size: 14px; }
     #g-side { display: flex; grid-area: side; flex-direction: column; gap: 10px; min-height: 0; }
     #g-side .panel { padding: 10px 12px; }
     #g-side .log-box { flex: 1 1 0; }
     .setup { max-width: 560px; justify-content: center; }
+  }
+  /* shorter laptop screens: the six gem piles stand a little closer so the Bank label stays clear of your hand */
+  @media (min-width: 900px) and (max-height: 860px) {
+    .bank { gap: 2px; } .tok { width: 44px; height: 52px; }
   }
   ul.log { list-style: none; margin: 0; padding: 0; font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
   ul.log li { color: var(--muted); }
@@ -321,7 +324,7 @@
   .demo-row svg.gchip { width: 34px; height: 34px; align-self: flex-end; }
   .seatrow > .grow { white-space: nowrap; }
   /* short phones (iPhone SE): drop the decorative cards so Deal stays above the tab bar */
-  @media (max-height: 620px) { .demo-row { display: none; } .hero img { width: 38px; height: 38px; } .hero h1 { font-size: 21px; } }
+  @media (max-height: 620px) { .demo-row { display: none; } .hero img { width: 38px; height: 38px; } .hero h1 { font-size: 21px; } .setup .panel { gap: 7px; } }
 
   /* ---------------------------------------------- cards tab */
   .cwrap { flex: 1; min-height: 0; display: grid; gap: 10px; grid-template-rows: auto minmax(0, 1fr); }
@@ -421,17 +424,29 @@
 
     .seats-row.n3 { gap: 4px; } .seats-row.n3 .seat { padding: 3px 3px 4px; } .seats-row.n3 .plate .pts { font-size: 12.5px; } .seats-row.n3 .plate .nmx { text-overflow: clip; }
   }
-  /* phone on its side: the cards on the left, everything else on the right */
+  /* phone on its side: the other players along the far edge as at a real table, the cards below on the left,
+     nobles, bank, your place and the buttons on the right */
   @media (max-height: 500px) and (min-width: 560px) and (max-width: 899px) {
-    #game { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 8px; row-gap: 5px;
-      grid-template-rows: auto minmax(0, 1fr) auto auto auto;
-      grid-template-areas: "nobles status" "market status" "market bank" "market me" "market acts"; }
+    #game { grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 8px; row-gap: 4px;
+      grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+      grid-template-areas: "status status" "market nobles" "market bank" "market me" "market acts"; }
+    .me { height: 84px; } .me .ccol { height: 46px; }
+    .otab { height: 22px; }
     .view.on-table { padding: 6px 10px; }
     .nobles { height: 36px; } .nobles .noble { width: 36px; height: 36px; }
     .market { gap: 4px; } .mrow { gap: 4px; }
     .bank { height: 54px; gap: 3px; } .tok { width: 40px; height: 52px; }
     .bank .side { font-size: 0; } .bank .side .q { font-size: 12px; }
     .status { align-self: start; }
+  }
+  /* small phone on its side (iPhone SE: 568 x 320) */
+  @media (max-height: 360px) and (min-width: 560px) and (max-width: 899px) {
+    .nobles { height: 28px; } .nobles .noble { width: 28px; height: 28px; } .nobles .rnd { font-size: 11px; }
+    .bank { height: 44px; } .tok { width: 34px; height: 44px; } .tok .n { min-width: 16px; height: 16px; font-size: 10px; }
+    .me { height: 70px; padding: 3px 5px; } .me .ccol { height: 36px; } .htok { max-width: 22px; } .htok b { font-size: 11px; }
+    .hand .slot { height: 46px; } .res.hand { width: 80px; } .mine-info b { font-size: 16px; }
+    .acts { min-height: 40px; } .acts .btn { min-height: 36px; }
+    .otab { height: 18px; }
   }
 </style>
 </head>
@@ -450,7 +465,7 @@
   <section class="view" id="v-settings"></section>
 </div>
 <script src="js/cards.js?v=1"></script>
-<script src="js/engine.js?v=1"></script>
+<script src="js/engine.js?v=2"></script>
 <script src="js/bots.js?v=1"></script>
 <script src="js/strength-data.js?v=1"></script>
 <script src="js/online-game.js?v=1"></script>
@@ -458,6 +473,6 @@
 <script src="js/fx.js?v=2"></script>
 <script src="js/table.js?v=1"></script>
 <script src="js/sfx.js?v=1"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/app.js?v=8"></script>
 </body>
 </html>

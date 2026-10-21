@@ -43,3 +43,9 @@
   - real iPhone
   - the landscape seat placement
   - larger cascades for your bought cards
+
+## 2026-10-20 — edge pass (weird scenarios)
+- **Asked** (via the manager): "Could you focus on making each game perfect especially in scenarios that the game doesn't expect or are a little weird." Also fix 3 look gaps: bought cards as tabs, landscape opponents beside the bank, laptop opponents' reserved cards face up.
+- **Built:** 48 scenarios tested, 23 failed before, all pass now (list in the manager scratchpad `edge/splendor/scenarios.md`). Engine guards (empty-spot reserve, odd deck numbers, names). App: two-tab sync, Back closes boxes, no stray flying cards, one toast, clearer messages, computers pause in a hidden tab. Layout fixes at SE / landscape / 768–800 px laptops / 200% zoom. Real card columns, opponents across the top in landscape, opponents' hands as backs.
+- **Verified:** engine 35 (10 new edge tests, failing first where buggy), fx 13, online 6; edge.mjs 40+ checks in Chromium mobile + WebKit; sp-fix 35/35, sp-fx-e2e, flyshot pass.
+- **Open:** online-only oddities not re-run on real Firebase; real iPhone.

@@ -30,6 +30,8 @@
 
   // ------------------------------------------------------------------ storage (try/catch: private mode etc.)
   const KEY = 'splendor.v1';
+  // a typed name: trimmed, 20 characters at most, never cutting an emoji in half
+  function name20(x) { return Array.from(String(x == null ? '' : x).trim()).slice(0, 20).join('').trim(); }
   let store;
   try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { store = null; }
   if (!store || typeof store !== 'object' || Array.isArray(store)) store = {};
@@ -41,7 +43,7 @@
     if (!Array.isArray(st.seats) || st.seats.length !== 3) st.seats = defSettings.seats.slice();
     st.seats = st.seats.map((k, i) => (['computer', 'human', 'off'].indexOf(k) >= 0 && !(i === 0 && k === 'off')) ? k : (i === 0 ? 'computer' : 'off'));
     if (!LV_NAME[st.level]) st.level = 'hard';
-    st.name = String(st.name || '').slice(0, 20);
+    st.name = name20(st.name);
     st.cities = st.cities === true;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage full or blocked */ } }
@@ -174,7 +176,7 @@
     }
     if (k !== 'create' && k !== 'join') return;
     const nameEl = $('#on-name');
-    if (nameEl) { store.settings.name = nameEl.value.trim().slice(0, 20); save(); }
+    if (nameEl) { store.settings.name = name20(nameEl.value); save(); }
     const name = store.settings.name || 'Player';
     const codeEl = $('#on-code');
     const code = codeEl ? codeEl.value.trim().toUpperCase() : '';
@@ -201,6 +203,7 @@
   function heat(x, lo, hi) { const f = Math.max(0, Math.min(1, (x - lo) / (hi - lo))); return 'hsl(' + Math.round(f * 130) + ', 70%, 62%)'; }
   const qBtn = text => '<button class="q" data-q="' + esc(text) + '" aria-label="Why?">?</button>';
   function toast(msg) {
+    document.querySelectorAll('.toast').forEach(x => x.remove()); // rapid taps: one message, not a pile
     const t = document.createElement('div');
     t.className = 'toast'; t.textContent = msg;
     document.body.appendChild(t);
@@ -213,17 +216,27 @@
       '<button class="btn ghost" data-c="no">Cancel</button><button class="btn primary" data-c="yes">' + esc(yes) + '</button></div></div>';
     back.addEventListener('click', e => {
       const b = e.target.closest('[data-c]');
-      if (e.target === back || b) { back.remove(); if (b && b.dataset.c === 'yes') onYes(); }
+      if (e.target === back || b) { back.remove(); dropOverlay(); if (b && b.dataset.c === 'yes') onYes(); }
     });
     document.body.appendChild(back);
+    markOverlay();
+  }
+  // a sheet or box on screen gets its own history step, so phone Back closes it instead of leaving the site
+  function markOverlay() { try { if (!(history.state && history.state.ov)) history.pushState({ tab: ui.tab, ov: 1 }, '', location.hash || '#' + ui.tab); } catch (e) { /* file:// */ } }
+  function dropOverlay() {
+    setTimeout(() => {
+      if ($('#sheet') || $('.confirm-back')) return;
+      try { if (history.state && history.state.ov) { ui.skipPop = true; history.back(); } } catch (e) { /* file:// */ }
+    }, 0);
   }
   function sheet(title, html) {
     closeSheet();
     const back = document.createElement('div');
     back.className = 'sheet-back'; back.id = 'sheet';
     back.innerHTML = '<div class="sheet"><div class="row"><h3 class="grow">' + esc(title) + '</h3><button class="btn small ghost" data-close>Close</button></div><div class="scroll">' + html + '</div></div>';
-    back.addEventListener('click', e => { if (e.target === back || e.target.closest('[data-close]')) closeSheet(); });
+    back.addEventListener('click', e => { if (e.target === back || e.target.closest('[data-close]')) { closeSheet(); dropOverlay(); } });
     document.body.appendChild(back);
+    markOverlay();
   }
   function closeSheet() { const s = $('#sheet'); if (s) s.remove(); }
   const gemTxt = k => Art.gem(k);
@@ -256,15 +269,19 @@
     document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + tab));
     if (push) try { history.pushState({ tab }, '', '#' + tab); } catch (e) { /* file:// */ }
     closeSheet();
+    if (tab !== 'play') document.querySelectorAll('.flyer').forEach(f => f.remove()); // nothing keeps flying over another tab
     render();
   }
   const TABS = ['play', 'cards', 'study', 'settings'];
   window.addEventListener('popstate', e => {
+    if (ui.skipPop) { ui.skipPop = false; return; } // our own step back after a sheet closed by its button
     // Back with a sheet or a confirm box open just closes it and stays on this tab
     const open = $('#sheet') || $('.confirm-back');
     if (open) {
       document.querySelectorAll('#sheet, .confirm-back').forEach(x => x.remove());
-      try { history.pushState({ tab: ui.tab }, '', '#' + ui.tab); } catch (err) { /* file:// */ }
+      if (!(e.state && e.state.tab === ui.tab)) { // landed on another tab's step: stay here
+        try { history.pushState({ tab: ui.tab }, '', '#' + ui.tab); } catch (err) { /* file:// */ }
+      }
       return;
     }
     const h = (location.hash || '').slice(1);
@@ -453,6 +470,9 @@
     if (!table || table.online) return;
     const g = table.g, s = g.state;
     if (s.over || g.kinds[s.turn] !== 'computer') return;
+    // a tab in the background doesn't play the computers' turns (you'd miss them, and a second tab of the
+    // same game would race this one); they play when you come back
+    if (document.hidden) return;
     ui.botTimer = setTimeout(() => {
       if (!table || table.online || table.g !== g) return;
       const st = g.state;
@@ -543,7 +563,7 @@
     for (let k = 0; k < 6; k++) {
       const r = ui.ret[k];
       // each colour: the cards you bought in an overlapping column (as players lay them out), your gems stacked below
-      holds += '<div class="hold' + (discard ? ' ret' : '') + '"' + (discard ? ' data-ret="' + k + '"' : '') + '>' + (k < 5 ? cardColumn(k, me.bonus[k], 'col-' + k) : nobleSpot(me, v)) +
+      holds += '<div class="hold' + (discard ? ' ret' : '') + '"' + (discard ? ' data-ret="' + k + '"' : '') + '>' + (k < 5 ? cardColumn(k, me.cards, 'col-' + k) : nobleSpot(me, v)) +
         '<button class="htok' + (me.gems[k] ? '' : ' zero') + (discard ? ' ret' : '') + (r ? ' retd' : '') + '" data-r="' + r + '" id="h-' + k + '" aria-label="' + COLW[k] + ' gems held: ' + me.gems[k] + '">' + chipStack(k, me.gems[k], 5, '<b>' + me.gems[k] + '</b>') + '</button></div>';
     }
     holds += '</div>';
@@ -612,14 +632,15 @@
     for (let i = 0; i < vis; i++) s += '<span class="st" style="--i:' + i + '">' + Art.chip(k) + (i === vis - 1 && label ? label : '') + '</span>';
     return s + '</span>';
   }
-  // the cards of one colour laid in a column, each showing its top edge; the number is how many
-  function cardColumn(k, n, id, cap) {
-    const vis = Math.min(n, cap || 4);
-    const style = 'style="--c:' + Art.PAL[k][0] + ';--c2:' + Art.PAL[k][2] + ';--ink:' + (k === 0 ? '#222' : '#fff') + '"';
-    let s = '<div class="ccol' + (n ? '' : ' none') + '" id="' + id + '" ' + style + ' title="' + n + ' ' + COLW[k] + ' card' + (n === 1 ? '' : 's') + '">';
-    if (!n) return s + '<span class="mc spot"></span></div>';
-    for (let i = 0; i < vis; i++) s += '<span class="mc" style="--i:' + (vis - 1 - i) + '"><i class="mg">' + Art.gem(k) + '</i>' + (i === vis - 1 ? '<b>' + n + '</b>' : '') + '</span>';
-    return s + '</div>';
+  // the cards of one colour laid in an overlapping column, the way players lay them out: the real cards, each one
+  // lower than the last so its top band (points + gem) shows; the newest is in front. Long columns close up so
+  // they still fit, and the number of cards rides on the front card once there are two or more.
+  function cardColumn(k, cards, id, cap) {
+    const all = cards.filter(c => CARDS[c].bonus === k), n = all.length;
+    const vis = all.slice(-Math.min(n, cap || 9));
+    let s = '<div class="ccol' + (n ? '' : ' none') + '" id="' + id + '" style="--m:' + Math.max(1, vis.length - 1) + '" title="' + n + ' ' + COLW[k] + ' card' + (n === 1 ? '' : 's') + '">';
+    vis.forEach((c, i) => { s += '<span class="rc" style="--i:' + i + '">' + Art.card(c) + '</span>'; });
+    return s + (n > 1 ? '<b class="cn">' + n + '</b>' : '') + '</div>';
   }
   // nobles (or a city) you earned lie beside your cards
   function nobleSpot(p) {
@@ -629,10 +650,11 @@
   }
   // another player's place at the table
   function seatHTML(p, i, v, isAway) {
-    const cols = [0, 1, 2, 3, 4].map(k => cardColumn(k, p.bonus[k], 'oc-' + i + '-' + k, 3)).join('');
+    const cols = [0, 1, 2, 3, 4].map(k => cardColumn(k, p.cards, 'oc-' + i + '-' + k, 5)).join('');
     const gems = [0, 1, 2, 3, 4, 5].map(k => '<span class="og' + (p.gems[k] ? '' : ' zero') + '" id="og-' + i + '-' + k + '">' + chipStack(k, p.gems[k], 4, '<b>' + p.gems[k] + '</b>') + '</span>').join('');
     const handBacks = p.reserved.map(r => '<span class="hb">' + Art.back(r.id !== null ? CARDS[r.id].level : r.level) + '</span>').join('') + (p.reserved.length > 1 ? '<b class="hn">' + p.reserved.length + '</b>' : '');
-    const handCards = p.reserved.map(r => '<span class="hc">' + (r.id !== null ? Art.card(r.id) : Art.back(r.level)) + '</span>').join('');
+    // held in their hand, so from across the table you see the backs (the level shows); tap the seat to see the ones taken face up
+    const handCards = p.reserved.map(r => '<span class="hc">' + Art.back(r.id !== null ? CARDS[r.id].level : r.level) + '</span>').join('');
     const nob = p.nobles.length + (p.cities || []).length;
     return '<div class="seat' + (i === v.turn && !v.over ? ' turn' : '') + (isAway ? ' away' : '') + '" data-player="' + i + '" id="chip-' + i + '">' +
       '<div class="plate" style="--sc:' + SEAT_COL[i] + '"><span class="dot" style="background:' + SEAT_COL[i] + '"></span><span class="nmx">' + esc(p.name) + '</span>' +
@@ -667,7 +689,7 @@
       return '<div class="say"><b>Too many gems.</b> Tap ' + (need - got > 0 ? (need - got) + ' more' : 'Return') + ' of yours to give back (10 max).</div>' +
         '<button class="btn ghost" data-clear>Clear</button><button class="btn primary" data-return' + (got === need ? '' : ' disabled') + '>Return ' + need + '</button>';
     }
-    if (v.phase === 'noble') return '<div class="say"><b>Two nobles want to visit.</b> Tap the one you want.</div>';
+    if (v.phase === 'noble') return '<div class="say"><b>' + (['Two', 'Three', 'Four', 'Five'][v.nobleChoice.length - 2] || 'Several') + ' nobles want to visit.</b> Tap the one you want.</div>';
     if (v.phase === 'city') return '<div class="say"><b>You qualify for more than one city.</b> Tap the one you take.</div>';
     const leg = E.legal(v, seat);
     if (leg.length === 1 && leg[0].t === 'pass') return '<div class="say"><b>No legal move.</b> You must pass.</div><button class="btn primary" data-pass>Pass</button>';
@@ -694,7 +716,7 @@
         '<button class="btn primary" data-buy id="do-buy"' + (canBuy ? '' : ' disabled') + '>Buy</button>';
     }
     if (ui.sel && ui.sel.kind === 'deck') {
-      return '<div class="say"><b>Level ' + ui.sel.level + ' deck</b><br>Reserve the top card unseen' + (v.bank[5] ? ' + 1 gold.' : '.') + '</div>' +
+      return '<div class="say"><b>Level ' + ui.sel.level + ' deck</b><br>' + (me.reserved.length < 3 ? 'Reserve the top card unseen' + (v.bank[5] ? ' + 1 gold.' : '.') : 'You already hold 3 reserved cards.') + '</div>' +
         '<button class="btn primary" data-reserve id="do-reserve"' + (me.reserved.length < 3 ? '' : ' disabled') + '>Reserve</button>';
     }
     if (ui.hint) return '<div class="say"><b>Hint: ' + esc(describe(ui.hint)) + '</b><br>' + esc(ui.hintWhy || '') + '</div>' + hintBtn;
@@ -721,7 +743,8 @@
   const shown = el => (el && el.getBoundingClientRect().width > 0 ? el : null);
   function fly(fromRect, toEl, front, o) {
     o = o || {};
-    if (!fromRect || !toEl || !document.body.animate || !anim()) return;
+    // nothing flies while another tab is showing (a computer can move while you read the Cards tab)
+    if (!fromRect || !toEl || !document.body.animate || !anim() || ui.tab !== 'play') { if (o.onDone) o.onDone(); return; }
     const to = toEl.getBoundingClientRect();
     const W = o.w || fromRect.width, H = o.h || fromRect.height;
     const x0 = fromRect.left + fromRect.width / 2 - W / 2, y0 = fromRect.top + fromRect.height / 2 - H / 2;
@@ -889,6 +912,7 @@
       if (h) {
         const k = Number(h.dataset.ret);
         const need = sum(me.gems) - 10;
+        if (!me.gems[k]) { nope('You hold no ' + COLW[k] + ' gems', h); return; }
         if (ui.ret[k] < me.gems[k] && sum(ui.ret) < need) ui.ret[k]++;
         else if (ui.ret[k] > 0) ui.ret[k]--;
         renderPlay(); return;
@@ -1082,7 +1106,7 @@
   vSet.addEventListener('change', e => {
     const k = e.target.dataset && e.target.dataset.sw;
     if (k) { store.settings[k] = e.target.checked; save(); }
-    if (e.target.id === 'set-name') { store.settings.name = e.target.value.trim().slice(0, 20); save(); }
+    if (e.target.id === 'set-name') { store.settings.name = name20(e.target.value); save(); }
   });
 
   // ------------------------------------------------------------------ boot
@@ -1097,6 +1121,29 @@
       renderPlay();
     }).catch(() => { net.connecting = false; store.online = false; ui.online = false; save(); renderPlay(); });
   }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleBot(); else clearTimeout(ui.botTimer); });
+  // the same game open in two tabs: a move made in the other tab shows up here, instead of one tab overwriting the other
+  window.addEventListener('storage', e => {
+    if (e.key !== KEY || !e.newValue) return;
+    let other;
+    try { other = JSON.parse(e.newValue); } catch (err) { return; }
+    if (!other || typeof other !== 'object') return;
+    if (other.settings && typeof other.settings === 'object') Object.assign(store.settings, other.settings);
+    if ('last' in other) store.last = other.last;
+    if (table && table.online) return;
+    const g = other.game;
+    if (g && g.state && validState(g.state) && Array.isArray(g.kinds) && g.kinds.length === g.state.n) {
+      if (!g.study || !Array.isArray(g.study.rec)) g.study = { rec: [], race: [] };
+      const same = table && store.game && store.game.started === g.started;
+      if (same && g.state.turns < table.g.state.turns) return; // never step back to an older position
+      store.game = g; ui.study = g.study;
+      if (!same) { ui.prev = null; ui.dealAll = true; }
+      table = new LocalTable(g); resetSel();
+    } else if (!g && table) { clearTimeout(ui.botTimer); store.game = null; table = null; ui.prev = null; }
+    else return render();
+    render();
+  });
+
   // test hook for headless checks (no effect on play)
   window.__sp = { state: () => table && !table.online ? table.g.state : null, view: () => table ? table.view(mySeat()) : null };
 })();

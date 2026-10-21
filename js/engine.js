@@ -17,6 +17,12 @@
     return a;
   }
 
+  // trimmed, at most 24 characters (an emoji is never cut in half), blank -> "Player N"
+  function cleanName(x, i) {
+    const t = Array.from(String(x == null ? '' : x).trim()).slice(0, 24).join('').trim();
+    return t || 'Player ' + (i + 1);
+  }
+
   function setup(n, options, rng, names) {
     n = Math.max(2, Math.min(4, n | 0));
     const o = options || {};
@@ -30,7 +36,7 @@
     const start = o.firstSeat === 0 ? 0 : Math.floor(rng() * n);
     const players = [];
     for (let i = 0; i < n; i++) {
-      players.push({ name: String((names && names[i]) || 'Player ' + (i + 1)).slice(0, 24),
+      players.push({ name: cleanName(names && names[i], i),
         gems: [0, 0, 0, 0, 0, 0], bonus: [0, 0, 0, 0, 0], cards: [], reserved: [], nobles: [], cities: [], points: 0 });
     }
     return {
@@ -160,12 +166,14 @@
     } else if (a.t === 'reserve') {
       if (p.reserved.length >= MAX_RESERVED) throw new Error('You can hold only 3 reserved cards');
       let id, blind = false;
-      if (a.deck) {
-        const l = a.deck - 1;
-        if (!(l >= 0 && l < 3) || !s.decks[l].length) throw new Error('That deck is empty');
+      if (a.deck !== undefined && a.deck !== null && a.deck !== 0) {
+        const l = Number(a.deck) - 1;
+        if (!(Number.isInteger(l) && l >= 0 && l < 3)) throw new Error('There is no such deck');
+        if (!s.decks[l].length) throw new Error('That deck is empty');
         id = s.decks[l].shift(); blind = true;
       } else {
-        const pos = marketPos(s, a.id);
+        // an empty spot (null) is not a card
+        const pos = Number.isInteger(a.id) ? marketPos(s, a.id) : null;
         if (!pos) throw new Error('That card is not on the table');
         id = a.id; refill(s, pos[0], pos[1]);
         s.last.from = pos;
