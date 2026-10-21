@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-20 (first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
+Last updated: 2026-10-21 (visibility pass; before that 2026-10-20: first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -24,6 +24,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 | Sound & effects (10-20) | Shared `js/fx.js` (byte copy of `../_fx/fx.js`) + game-local `js/sfx.js` (pure: before/after view -> events, so local, computer and online moves all sound the same). Settings tab has a "Sound & effects" panel (8 rows, styled like the page's own switches). `node tests/fx.test.js` 13 tests (12 real games; failed before sfx.js existed). Headless Chromium e2e (`scratchpad/sp-fx-e2e.mjs`): full game through taps, Sound off = 0 played, Animations off = 0 flyers / 0 running animations, 0 console errors. |
 | Table look (10-20, 4cb5682) | Play screen = dark wood table (`_table` kit copies `css/table.css`, `js/table.js`). Far edge: opponents as wooden name plates with card columns, chip stacks, hand backs. Middle: nobles row (above level 3 on laptop too), 3 rows with level-coloured deck stacks at the left, 6 chip-stack bank piles. Near edge: your colour card columns + chip stacks, reserved cards held as a fan. Cards ±1° off-square. Motion: dealt from the deck with a 3-D flip, bought/reserved cards fly to your columns/hand, chips glide. Flights redraw the card solid (fixed stray cost digits in WebKit; `flyshot.mjs` failed before, passes after). Laptop side panel = log only. Phone landscape = two columns. Shots: manager scratchpad `table/splendor/before|after|sizes`. |
 | Edge pass (10-20) | 48 weird scenarios (list + before/after in the manager scratchpad `edge/splendor/scenarios.md`): 23 failed before, all pass now. Engine: an empty market spot can't be reserved (was a phantom card online), odd deck numbers give a message, names trimmed / never half an emoji / blank -> "Player N". App: two tabs of one game stay in step (storage event; computers only move in the visible tab), Back with a sheet on the first screen closes it instead of leaving the site, no flying cards over other tabs, one toast at a time, "Three nobles" wording, messages for empty-colour returns and a 4th reserve. Layout: hand fan inside your area at every size, bank clear of your hand on 768–800 px laptops, iPhone SE landscape, setup at 320×568. Look gaps fixed: your and opponents' bought cards are real overlapping cards in colour columns (newest in front, count on the front card); phone landscape puts opponents along the top; laptop opponents hold reserved cards as backs (tap the seat for the known ones). 10 new engine tests (failed first where it was a bug). |
+| Visibility pass (10-21) | Card cost dots bigger in the art (numbers 13.5 -> 19 of 140), noble/city requirement numbers bigger (cities fit up to 5 squares). Phone: thinner bands, market cards 59x83 -> 64x89 (4p) / 68x95 (2p), cost digits 8 -> 12 px; opponents show gem colours on a 2nd line (2-3 opponents), card counts 11 px. SE portrait: bank is a column beside the cards (cards 38x52 -> 49x68). Phone landscape: market runs full height, opponents above the right column (cards 62x87 -> 69x96). Laptop: nobles column left of the cards (1280 cards 84x117 -> 103x143, 1440 108x150 -> 126x176); opponent columns 15 -> 22-30 px; 3 opponents hold cards on the name plate. Shots + measurements: manager scratchpad `vis/splendor/before|after`, check `vis/splendor/check.mjs` (160 fails before, 0 after, WebKit + Chromium). |
 | Screens at 393 px (WebKit + Chromium) and 1440 px | Done: every tab, a full game with a reload mid-game, Cities 3-player game; no console errors, no overflow, no page scroll. |
 
 ## Standing instructions (Tim's words)
@@ -34,6 +35,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - "add opptional sounds you can add to the games that reflect what's happening in the game accurately as well as win celebrations, and other fun annimations to go along with everything. Just make sure everything is customizable in the settings so the user can play as preffered." (2026-10-20)
 - "could you also make sure that each of the games also have a look to them so that the game (either board or card layout) looks almost identical to how the board or card layout looks like in real life ... Make the decks look like actual decks. Make the board have the same design as it does in real life with the same layouts. It should look kind of like you're looking through a camera that is connected to a user's glasses that is playing in real life" (2026-10-20)
 - "I've noticed the games often have good user interfaces but could be improved especially when a scenario happens that the game might've not really thought about or whatnot. Could you focus on making each game perfect especially in scenarios that the game doesn't expect or are a little weird." (2026-10-20)
+- "for a lot of the games the cards or board layout is too small to easily see what's going on. Some games just need small design imporvements like filling the screen with the board view and fitting the cards and other things in the empty space ... Fix this so the view of what's happening and where everything is is very clear. Consider parts of the board that are dense in what's happening and if the user can reasonably see it." (2026-10-21)
 - Common brief: $0, no copyrighted art or rulebook text, no page scroll on main screens, bottom tabs on phone, "?" explains why, choices in Settings.
 
 ## Traps
@@ -56,6 +58,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Sheets and confirm boxes push a history step (`markOverlay`); closing one by its button steps back (`dropOverlay` + `ui.skipPop`). Open new overlays through `sheet()` / `confirmBox()` so Back keeps working.
 - `scheduleBot` doesn't run while the tab is hidden (visibilitychange resumes it); the `storage` listener adopts another tab's newer save.
 - `tests/engine.test.js` now reports every failure and exits 1 (it used to stop at the first).
+- Layout by size (10-21): phone portrait rules in the `max-width: 899px` block before the one-opponent block; SE portrait (`max-height: 620px`, portrait) puts the bank in a column; landscape puts status in the right column except `max-height: 360px` (SE landscape) where it spans again; laptop nobles are a column and `fitMarket()` subtracts their width. The old edge check `look-landscape` (opponents above the market) now fails on purpose.
 
 ## Event -> sound map (js/sfx.js; others' moves at 0.8 volume)
 | Event | Sound | Effect |
@@ -95,6 +98,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Edge pass: online-only oddities (host leaving, AFK, Firestore offline, two people in one seat) not re-run on real Firebase; they live in the shared online.js. Two tabs both visible side by side could still race a computer move (only the hidden-tab case is guarded).
 - Which two city sides share one physical tile: one data source only.
 - Online room across two real devices (two headless browsers only).
+- Visibility pass: SE (320 px) still below the 12 px floor (cost digits 9.3 px, gem piles 34x33 tap size); SE landscape still cramped (opponents' gem colours hidden there); 5-colour cities 7.6 px numbers on phones; your own bought-card bands stay small (counts on the front card carry the info). Not seen on a real iPhone.
 - City tile numbers: match the rulebook's 3 printed examples + 3 data sets (lecodex, hexanome JSON, CSV); not checked against a physical tile.
 
 ## Rejected / parked

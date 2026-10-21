@@ -49,3 +49,9 @@
 - **Built:** 48 scenarios tested, 23 failed before, all pass now (list in the manager scratchpad `edge/splendor/scenarios.md`). Engine guards (empty-spot reserve, odd deck numbers, names). App: two-tab sync, Back closes boxes, no stray flying cards, one toast, clearer messages, computers pause in a hidden tab. Layout fixes at SE / landscape / 768–800 px laptops / 200% zoom. Real card columns, opponents across the top in landscape, opponents' hands as backs.
 - **Verified:** engine 35 (10 new edge tests, failing first where buggy), fx 13, online 6; edge.mjs 40+ checks in Chromium mobile + WebKit; sp-fix 35/35, sp-fx-e2e, flyshot pass.
 - **Open:** online-only oddities not re-run on real Firebase; real iPhone.
+
+## 2026-10-21 — visibility pass
+- **Asked** (via the manager): "the cards or board layout is too small to easily see what's going on ... Fix this so the view of what's happening and where everything is is very clear. Consider parts of the board that are dense".
+- **Built:** bigger cost/noble/city numbers in the art; phone bands thinned so the market grows; opponents' gem colours on phones; SE bank column; landscape market full height; laptop nobles column; bigger opponent pieces on laptop. Files: `index.html`, `js/art.js`, `js/app.js` (fitMarket).
+- **Verified:** check.mjs on 34 shots (6 real bot-game states x 5 sizes + 2 tabs) fails 160 before, passes after in WebKit and Chromium; real taps (card select, take 3) at 4 sizes in both engines; engine 35, fx 13, online 6; sp-fix 35/35; edge.mjs 41/42 (look-landscape fails on purpose); one read-only reviewer, its clip bug fixed.
+- **Open:** SE still under the 12 px floor; real iPhone.
