@@ -243,7 +243,7 @@
     .tok .n { min-width: 22px; height: 22px; font-size: 13px; border-radius: 11px; }
     .bank .side { margin: 2px 0 0; text-align: center; }
     .slot.deck .cnt { font-size: 14px; }
-    .tta { min-width: 24px; height: 24px; font-size: 13.5px; border-radius: 12px; }
+    .tta { min-width: 26px; height: 26px; font-size: 14.5px; border-radius: 13px; }
     .tta.far { min-width: 0; width: 14px; height: 14px; }
     .seats-row { gap: 12px; justify-content: center; }
     .seat { max-width: 380px; padding: 6px 8px; gap: 5px; }
@@ -288,6 +288,13 @@
     #g-side .panel { padding: 10px 12px; }
     #g-side .log-box { flex: 1 1 0; }
     .setup { max-width: 560px; justify-content: center; }
+  }
+  /* wide laptops: the seats have room, so the opponents' card columns and gem piles get bigger */
+  @media (min-width: 1400px) {
+    .seat .ccol, .seats-row.n3 .seat .ccol { width: 30px; --cwmax: 30px; }
+    .seat .ccol .cn { font-size: 13px; line-height: 15px; min-width: 15px; }
+    .og { width: 24px; height: 30px; } .og b { font-size: 14px; }
+    .tta { min-width: 28px; height: 28px; font-size: 15px; border-radius: 14px; }
   }
   /* shorter laptop screens: the six gem piles stand a little closer so the Bank label stays clear of your hand */
   @media (min-width: 900px) and (max-height: 860px) {
@@ -408,6 +415,8 @@
   /* phone: the cards get the room. Thinner bands between the table parts; opponents show their gem colours on a
      second line (2-3 opponents) and bigger card counts */
   @media (max-width: 899px) {
+    /* nobles shrink a little rather than run under the round label on narrow rows */
+    .ntiles { flex: 0 1 auto; } .nobles .noble { flex: 0 1 auto; min-width: 0; height: auto !important; aspect-ratio: 1; }
     #v-play.on-table { padding: 5px 10px 4px; }
     #game { gap: 4px; }
     .market, .mrow { gap: 4px; }
@@ -470,7 +479,8 @@
     .me { height: 84px; } .me .ccol { height: 46px; }
     .otab { height: 22px; }
     .view.on-table { padding: 6px 10px; }
-    .nobles { height: 42px; } .nobles .noble { width: 42px; height: 42px; }
+    .nobles { height: 40px; gap: 4px; } .nobles .noble { width: 40px; height: 40px; } .ntiles { gap: 4px; }
+    .nobles .rnd { flex: none; white-space: nowrap; }
     .market { gap: 4px; } .mrow { gap: 4px; }
     .bank { height: 54px; gap: 3px; } .tok { width: 40px; height: 52px; }
     .bank .side { font-size: 0; } .bank .side .q { font-size: 12px; }
