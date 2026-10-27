@@ -39,6 +39,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Common brief: $0, no copyrighted art or rulebook text, no page scroll on main screens, bottom tabs on phone, "?" explains why, choices in Settings.
 
 ## Traps
+- **online.js cache stamp (2026-10-27):** every import of `js/online.js` uses `?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, bump the importing file's `?v=` (and pwa.js `data-version`), then `node ../_online/tools/stamp.mjs --check .` must say OK.
 - `js/online.js` is a COPY of `../_online/online.js`. Never edit it here. Same for `js/fx.js` (copy of `../_fx/fx.js`) and `js/table.js` / `css/table.css` (copies of `../_table/`). Working copies show CRLF (autocrlf); the committed blobs are byte-identical.
 - The click handler treats `[data-new]` as "New game": newly dealt market cards are marked `data-dealt`, never `data-new`.
 - Never clone a card's innerHTML for a flight (badges and digits ride along); `fly()` redraws it with `Art.card`.
