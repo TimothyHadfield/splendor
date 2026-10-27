@@ -9,6 +9,8 @@
   'use strict';
   const { CARDS, NOBLES, CITIES, GEMS_BY_PLAYERS, GOLD, WIN_POINTS, MAX_TOKENS, MAX_RESERVED } = Cards;
   const NAMES = ['white', 'blue', 'green', 'red', 'black', 'gold'];
+  const TARGETS = [10, 15, 18, 21];
+  const targetOf = s => (TARGETS.indexOf(s.target) >= 0 ? s.target : WIN_POINTS);
   const clone = x => JSON.parse(JSON.stringify(x));
   const sum = a => a.reduce((s, x) => s + x, 0);
 
@@ -34,13 +36,15 @@
     const cityIds = cities ? shuffle([1, 2, 3, 4, 5, 6, 7], rng).slice(0, 3).map(t => CITIES.filter(c => c.tile === t)[rng() < 0.5 ? 0 : 1].id) : [];
     const g = GEMS_BY_PLAYERS[n];
     const start = o.firstSeat === 0 ? 0 : Math.floor(rng() * n);
+    // points to win: 15 is the rule; a table may agree on another target (option, like the official app's online games)
+    const target = TARGETS.indexOf(o.target) >= 0 ? o.target : WIN_POINTS;
     const players = [];
     for (let i = 0; i < n; i++) {
       players.push({ name: cleanName(names && names[i], i),
         gems: [0, 0, 0, 0, 0, 0], bonus: [0, 0, 0, 0, 0], cards: [], reserved: [], nobles: [], cities: [], points: 0 });
     }
     return {
-      v: 1, n, mode: cities ? 'cities' : 'base', decks, market, bank: [g, g, g, g, g, GOLD], nobles, cities: cityIds, players,
+      v: 1, n, mode: cities ? 'cities' : 'base', target, decks, market, bank: [g, g, g, g, g, GOLD], nobles, cities: cityIds, players,
       start, turn: start, phase: 'main', turns: 0, finalRound: false, over: false, result: null,
       nobleChoice: [], last: null, log: [],
     };
@@ -237,7 +241,7 @@
   function endTurn(s, seat) {
     s.phase = 'main'; s.nobleChoice = [];
     s.turns++;
-    if (s.mode === 'cities' ? s.players[seat].cities.length > 0 : s.players[seat].points >= WIN_POINTS) s.finalRound = true;
+    if (s.mode === 'cities' ? s.players[seat].cities.length > 0 : s.players[seat].points >= targetOf(s)) s.finalRound = true;
     const next = (seat + 1) % s.n;
     if (s.finalRound && next === s.start) { finish(s); return s; }
     if (s.turns >= 600) { finish(s); return s; } // safety net; no real game comes near it
@@ -263,7 +267,7 @@
   // seat -1 = public. Hidden: deck order, other players' blind reserves.
   function view(s, seat) {
     const v = {
-      n: s.n, mode: s.mode || 'base', cities: s.cities || [], market: s.market, deckSizes: s.decks.map(d => d.length), bank: s.bank, nobles: s.nobles,
+      n: s.n, mode: s.mode || 'base', target: targetOf(s), cities: s.cities || [], market: s.market, deckSizes: s.decks.map(d => d.length), bank: s.bank, nobles: s.nobles,
       start: s.start, turn: s.turn, phase: s.phase, turns: s.turns, finalRound: s.finalRound, over: s.over,
       result: s.result, nobleChoice: s.phase === 'noble' || s.phase === 'city' ? s.nobleChoice : [], last: publicLast(s.last, s, seat), log: s.log, seat,
       players: s.players.map((p, i) => ({
@@ -327,5 +331,5 @@
     return best;
   }
 
-  return { setup, apply, legal, view, autoPay, payOk, qualifies, cityOk, turnsToAfford, tokens, NAMES, clone };
+  return { TARGETS, targetOf, setup, apply, legal, view, autoPay, payOk, qualifies, cityOk, turnsToAfford, tokens, NAMES, clone };
 });

@@ -458,5 +458,29 @@ t('edge: Cities — two players take cities in the same round -> the one with mo
   assert.equal(a.over, true); assert.deepEqual(a.players[1].cities.length, 1); assert.deepEqual(a.result.winners, [1]);
 });
 
+// ------------------------------------------------------------------ points to win (option; 15 stays the default)
+t('option: points to win 21 -> reaching 15 does not start the final round, 21 does; default stays 15', () => {
+  assert.equal(E.setup(2, {}, mulberry(3), ['A', 'B']).target, 15);
+  assert.equal(E.setup(2, { target: 99 }, mulberry(3), ['A', 'B']).target, 15); // anything odd -> standard
+  const s = E.setup(2, { target: 21, firstSeat: 0 }, mulberry(3), ['A', 'B']);
+  assert.equal(s.target, 21);
+  assert.equal(E.view(s, 0).target, 21);
+  s.players[0].points = 16;
+  const a = E.apply(s, 0, { t: 'take', g: [0, 1, 2] });
+  assert.equal(a.finalRound, false);
+  a.players[1].points = 21;
+  const b = E.apply(a, 1, { t: 'take', g: [0, 1, 2] });
+  assert.equal(b.finalRound, true); assert.equal(b.over, true);
+  // an old saved state (no target) still ends at 15
+  const o = E.setup(2, { firstSeat: 0 }, mulberry(3), ['A', 'B']); delete o.target; o.players[0].points = 15;
+  assert.equal(E.apply(o, 0, { t: 'take', g: [0, 1, 2] }).finalRound, true);
+});
+t('option: computers play to the table\'s target (a 21-point game vs Hard ends with someone at 21+)', () => {
+  const rng = mulberry(9);
+  let s = E.setup(2, { target: 21 }, rng, ['A', 'B']);
+  while (!s.over) { const seat = s.turn; s = E.apply(s, seat, Bots.decide(E.view(s, seat), seat, 'hard', rng)); }
+  assert.ok(Math.max(...s.players.map(p => p.points)) >= 21);
+});
+
 console.log(pass + ' passed' + (fail ? ', ' + fail + ' FAILED' : ''));
 if (fail) process.exit(1);

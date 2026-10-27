@@ -36,7 +36,7 @@
   try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { store = null; }
   if (!store || typeof store !== 'object' || Array.isArray(store)) store = {};
   if (!store.settings || typeof store.settings !== 'object' || Array.isArray(store.settings)) store.settings = {};
-  const defSettings = { seats: ['computer', 'off', 'off'], level: 'hard', cities: false, showTurns: true, hints: true, name: '' };
+  const defSettings = { seats: ['computer', 'off', 'off'], level: 'hard', cities: false, showTurns: true, hints: true, name: '', target: 15, styles: 'balanced' };
   store.settings = Object.assign({}, defSettings, store.settings || {});
   { // clamp anything odd from an old or edited save
     const st = store.settings;
@@ -45,7 +45,12 @@
     if (!LV_NAME[st.level]) st.level = 'hard';
     st.name = name20(st.name);
     st.cities = st.cities === true;
+    if (E.TARGETS.indexOf(st.target) < 0) st.target = 15;
+    if (st.styles !== 'mixed') st.styles = 'balanced';
   }
+  if (!store.chal || typeof store.chal !== 'object' || Array.isArray(store.chal)) store.chal = {};
+  // the same seeded numbers as tools/measure.js, so a challenge deals exactly the cards its star marks were measured on
+  function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* storage full or blocked */ } }
 
   // ------------------------------------------------------------------ tables
@@ -78,6 +83,8 @@
       if (!LV_NAME[g.level]) g.level = 'hard';
       if (!validStudy(g.study)) g.study = { rec: [], race: [] };
       if (!(Number.isInteger(g.lastHuman) && g.kinds[g.lastHuman] === 'human')) g.lastHuman = 0;
+      if (!Array.isArray(g.undo) || !g.undo.every(u => u && validState(u.state))) g.undo = [];
+      if (!Array.isArray(g.styles)) g.styles = [];
       E.view(g.state, 0); E.legal(g.state, g.state.turn);
       table = new LocalTable(g);
     } catch (e) { store.game = null; save(); }
@@ -223,9 +230,17 @@
   }
   // a sheet or box on screen gets its own history step, so phone Back closes it instead of leaving the site
   function markOverlay() { try { if (!(history.state && history.state.ov)) history.pushState({ tab: ui.tab, ov: 1 }, '', location.hash || '#' + ui.tab); } catch (e) { /* file:// */ } }
+  // the shared kits' own overlays: the Rules sheet (coach.js) and My stats (profile.js)
+  const kitOpen = () => !!((window.COACH && COACH.rulesOpen()) || (window.Profile && window.Profile.isOpen && window.Profile.isOpen()));
+  function closeKits() {
+    ui.closingQuiet = true;
+    try { if (window.COACH && COACH.rulesOpen()) COACH.closeRules(); if (window.Profile && window.Profile.isOpen()) window.Profile.closePanel(); } catch (e) { /* never stops the game */ }
+    ui.closingQuiet = false;
+  }
+  const modalOpen = () => !!($('#sheet') || $('.confirm-back') || kitOpen());
   function dropOverlay() {
     setTimeout(() => {
-      if ($('#sheet') || $('.confirm-back')) return;
+      if ($('#sheet') || $('.confirm-back') || kitOpen()) return;
       try { if (history.state && history.state.ov) { ui.skipPop = true; history.back(); } } catch (e) { /* file:// */ }
     }, 0);
   }
@@ -276,9 +291,10 @@
   window.addEventListener('popstate', e => {
     if (ui.skipPop) { ui.skipPop = false; return; } // our own step back after a sheet closed by its button
     // Back with a sheet or a confirm box open just closes it and stays on this tab
-    const open = $('#sheet') || $('.confirm-back');
+    const open = $('#sheet') || $('.confirm-back') || kitOpen();
     if (open) {
       document.querySelectorAll('#sheet, .confirm-back').forEach(x => x.remove());
+      closeKits();
       if (!(e.state && e.state.tab === ui.tab)) { // landed on another tab's step: stay here
         try { history.pushState({ tab: ui.tab }, '', '#' + ui.tab); } catch (err) { /* file:// */ }
       }
@@ -382,8 +398,11 @@
         '<div class="seg" data-seat-kind="' + i + '">' + opts.map(o => '<button aria-pressed="' + (k === o) + '" data-v="' + o + '">' + (o === 'off' ? 'Off' : o === 'computer' ? 'Computer' : 'Friend') + '</button>').join('') + '</div></div>';
     }).join('');
     const demo = [CARDS.findIndex(c => c.level === 1 && c.points === 1 && c.bonus === 3), CARDS.findIndex(c => c.level === 2 && c.points === 2 && c.bonus === 1), CARDS.findIndex(c => c.level === 3 && c.points === 4 && c.bonus === 2)];
+    const P = window.Profile && SP ? window.Profile : null;
     vPlay.innerHTML = '<div class="setup">' +
-      '<div class="hero"><img src="icon.svg" alt=""><div><h1>Splendor Lab</h1><p>Play Splendor with turns-to-afford on every card.</p></div></div>' +
+      '<div class="hero"><img src="icon.svg" alt=""><div class="grow"><h1>Splendor Lab</h1><p>Play Splendor with turns-to-afford on every card.</p></div>' +
+      '<div class="hero-btns">' + (P ? '<button class="btn small ghost pf-open" data-stats id="my-stats">' + P.avatarSVG(P.avatar, 20) + 'My stats</button>' : '') +
+      (SC ? '<button class="btn small ghost" data-rules id="rules-btn">Rules</button>' : '') + '</div></div>' +
       '<div class="demo-row">' + demo.map(id => Art.card(id)).join('') + Art.chip(5) + '</div>' +
       '<div class="panel">' +
       '<span class="label">Players · seat 1 is you</span>' +
@@ -392,28 +411,179 @@
       '<div class="seg" data-set="level">' + ['easy', 'medium', 'hard'].map(l => '<button aria-pressed="' + (s.level === l) + '" data-v="' + l + '">' + LV_NAME[l] + '<small>' + LEVEL_NOTE[l] + '</small></button>').join('') + '</div>' +
       '<div class="setrow" style="min-height:40px"><div class="grow row" style="gap:6px"><b>Cities variant</b>' + qBtn('From the Cities of Splendor expansion: no nobles; 3 city tiles instead. Taking a city (enough points plus the bonuses shown) ends the game after the round, and only city holders can win.') + '</div><label class="switch"><input type="checkbox" data-setup-sw="cities"' + (s.cities ? ' checked' : '') + '><span></span></label></div>' +
       '<button class="btn primary" data-start id="deal" style="width:100%">Deal</button>' +
-      '<button class="btn" data-on="open" id="open-online" style="width:100%">Play online</button>' +
+      '<div class="morerow"><button class="btn" data-on="open" id="open-online">Play online</button>' +
+      (P ? '<button class="btn" data-daily id="daily-btn">' + (dailyDone() ? 'Daily ✓' : 'Daily') + '</button>' : '') +
+      (window.SpChallenges ? '<button class="btn" data-chal id="chal-btn">Challenges</button>' : '') + '</div>' +
+      (s.target !== 15 || (s.styles === 'mixed' && s.level === 'hard') ? '<p class="muted small" style="margin:0">' + (s.target !== 15 ? 'First to ' + s.target + ' points. ' : '') + (s.styles === 'mixed' && s.level === 'hard' ? 'Hard computers play in mixed styles. ' : '') + '(Settings)</p>' : '') +
       '</div>' +
       (store.last ? '<button class="btn ghost" data-go="study">Study your last game</button>' : '') +
       '</div>';
   }
 
-  function startGame() {
+  // opt (all optional): { kinds, level, levels, cities, target, rng, firstSeat, daily, tutorial, challenge, styles }
+  function startGame(opt) {
+    opt = opt || {};
     const s = store.settings;
-    const kinds = ['human'].concat(s.seats.filter(k => k !== 'off'));
+    const kinds = opt.kinds || ['human'].concat(s.seats.filter(k => k !== 'off'));
+    const level = opt.level || s.level;
+    // each computer seat's level (challenges can mix levels); style = Hard's personality, shown in its name
+    const levels = kinds.map((k, i) => (k === 'computer' ? (opt.levels && opt.levels[i]) || level : null));
+    let styles = kinds.map(() => null);
+    if (opt.styles) styles = opt.styles;
+    else if (level === 'hard' && s.styles === 'mixed' && !opt.daily && !opt.tutorial && !opt.challenge) {
+      const pool = Object.keys(B.STYLES);
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
+      let n = 0;
+      styles = kinds.map(k => (k === 'computer' ? pool[n++ % pool.length] : null));
+    }
     let ci = 0;
     const comps = kinds.filter(k => k === 'computer').length;
     let fi = 1;
-    const names = kinds.map((k, i) => i === 0 ? (s.name || 'You') : k === 'computer' ? LV_NAME[s.level] + (comps > 1 ? ' ' + (++ci) : '') : 'Friend ' + (fi++));
-    const rng = Math.random;
-    const state = E.setup(kinds.length, { cities: s.cities }, rng, names);
-    store.game = { state, kinds, level: s.level, started: Date.now(), lastHuman: 0, study: { rec: [], race: [[0, state.players.map(() => 0)]] } };
+    const names = kinds.map((k, i) => i === 0 ? (s.name || 'You') : k === 'computer' ?
+      (styles[i] && styles[i] !== 'balanced' ? LV_NAME[levels[i]] + ' · ' + B.STYLES[styles[i]].name : LV_NAME[levels[i]] + (comps > 1 && !opt.levels ? ' ' + (++ci) : '')) : 'Friend ' + (fi++));
+    // two computers of one level in a challenge still get told apart
+    if (opt.levels) { const seen = {}; names.forEach((nm, i) => { if (kinds[i] !== 'computer') return; seen[nm] = (seen[nm] || 0) + 1; }); const c2 = {}; names.forEach((nm, i) => { if (kinds[i] === 'computer' && seen[nm] > 1) { c2[nm] = (c2[nm] || 0) + 1; names[i] = nm + ' ' + c2[nm]; } }); }
+    const rng = opt.rng || Math.random;
+    const target = opt.target || (opt.daily || opt.tutorial || opt.challenge ? 15 : s.target);
+    const state = E.setup(kinds.length, { cities: opt.cities != null ? opt.cities : (opt.daily || opt.tutorial ? false : s.cities), target, firstSeat: opt.firstSeat }, rng, names);
+    store.game = { state, kinds, level, levels, styles, started: Date.now(), lastHuman: 0, study: { rec: [], race: [[0, state.players.map(() => 0)]] },
+      undo: [], helped: false, hinted: false, recorded: false, myTurns: 0, reserves: 0,
+      daily: opt.daily || null, tutorial: !!opt.tutorial, challenge: opt.challenge || null };
     ui.study = store.game.study;
     table = new LocalTable(store.game);
-    resetSel(); ui.prev = null; ui.shownSeat = 0; ui.dealAll = true;
+    resetSel(); ui.prev = null; ui.shownSeat = 0; ui.dealAll = true; ui.lastRecord = null;
     save();
     FX.play('shuffle');
     renderPlay();
+  }
+  // one person against computers on this device (Undo, My stats, challenges and the Daily only apply then)
+  const soloVsComputers = g => !!(g && g.kinds && g.kinds.filter(k => k === 'human').length === 1);
+
+  // ---- Undo (vs computers only; never in the Daily, a challenge or the guided game): back to just before your
+  // last move, the computers' replies undone too. The game then counts as "with help" (not rated).
+  function undoShown() {
+    const g = table && !table.online ? table.g : null;
+    return !!(g && soloVsComputers(g) && !g.daily && !g.tutorial && !g.challenge);
+  }
+  function canUndo() { return undoShown() && !table.g.state.over && !!(table.g.undo && table.g.undo.length); }
+  function undo() {
+    if (!canUndo()) return;
+    const g = table.g, u = g.undo.pop();
+    clearTimeout(ui.botTimer);
+    g.state = u.state; g.helped = true;
+    g.study.rec.length = Math.min(g.study.rec.length, u.rec); g.study.race.length = Math.min(g.study.race.length, u.race);
+    g.myTurns = u.myTurns; g.reserves = u.reserves;
+    ui.prev = null; resetSel(); save(); renderPlay();
+    toast('Took back your last move');
+  }
+
+  // ---- My stats (js/profile.js + js/spprofile.js): one result per finished game vs computers.
+  // Leaving after your first move counts as a loss; Hint or Undo makes it "with help" (not rated).
+  const SP = window.SpProfile && window.Profile ? window.SpProfile : null;
+  function recordGame() {
+    const g = table && !table.online ? table.g : null;
+    if (!SP || !g || g.recorded || g.tutorial || g.challenge || !soloVsComputers(g)) return null;
+    if (!g.state.over && !g.myTurns) return null; // dealt and left at once: not a game
+    g.recorded = true;
+    let out = null;
+    try {
+      const r = SP.result({ state: g.state, me: 0, level: g.level, helped: g.helped, daily: !!g.daily, myTurns: g.myTurns, reserves: g.reserves });
+      if (g.daily) r.date = g.daily; // a Daily finished after midnight still belongs to the day it was dealt
+      out = window.Profile.recordResult(r);
+    } catch (e) { /* the stats never stop the game */ }
+    save();
+    return out;
+  }
+  function dailyDone() { try { return !!(window.Profile && window.Profile.daily.played()); } catch (e) { return false; } }
+  function busyElsewhere() {
+    if (table && table.online) { toast('Leave the online room first'); return true; }
+    if (table && !table.g.state.over) { toast('Finish or quit this game first'); return true; }
+    return false;
+  }
+  function startDaily() {
+    const P = window.Profile;
+    if (!P || !SP) return;
+    if (dailyDone()) { openStats('daily'); return; }
+    if (busyElsewhere()) return;
+    if (P.isOpen()) closeKits();
+    const day = P.daily.date();
+    if (ui.tab !== 'play') showTab('play', true);
+    startGame({ kinds: ['human', 'computer'], level: SP.DAILY.level, styles: [null, 'balanced'], firstSeat: 0, rng: P.daily.rng(day, 'splendor-deal'), daily: day });
+  }
+  function openStats(t) {
+    if (!window.Profile || !SP) return;
+    document.querySelectorAll('#sheet, .confirm-back').forEach(x => x.remove());
+    window.Profile.openPanel(t ? { tab: t } : undefined);
+    if (window.Profile.isOpen()) markOverlay();
+  }
+  // ---- Rules sheet + guided first game (js/coach.js + js/spcoach.js)
+  const SC = window.COACH && window.SpCoach ? window.SpCoach : null;
+  function openRules() {
+    if (!SC) return;
+    document.querySelectorAll('#sheet, .confirm-back').forEach(x => x.remove());
+    closeKits();
+    COACH.rules(Object.assign({}, SC.RULES, { onClose: () => { if (!ui.closingQuiet) dropOverlay(); } }));
+    markOverlay();
+  }
+  let tour = null;
+  function startTutorial() {
+    if (!tour) return;
+    if (table && table.online) { toast('Leave the online room first'); return; }
+    if (table && !table.g.state.over && !table.g.tutorial) { toast('Finish or quit this game first'); return; }
+    tour.reset();
+    if (ui.tab !== 'play') showTab('play', true);
+    startGame({ kinds: ['human', 'computer'], level: SC.GAME.level, styles: [null, null], firstSeat: 0, rng: mulberry(SC.GAME.seed), tutorial: true });
+    tour.start(0);
+  }
+  function offerTutorial() {
+    if (!SC || !tour || table || ui.online || ui.tab !== 'play' || COACH.offered(SC.ID)) return;
+    setTimeout(() => {
+      if (table || ui.online || ui.tab !== 'play' || modalOpen()) return;
+      COACH.offer({ id: SC.ID, title: 'New to Splendor?', text: 'Play one guided game against the Easy computer.', yes: 'Teach me', no: 'No thanks', onYes: startTutorial });
+    }, 600);
+  }
+  // ---- Challenges (js/challenges.js + js/challenge-pars.js): set deals with a goal and stars
+  const CH = window.SpChallenges || null;
+  const PARS = () => window.SpChallengePars || {};
+  const starTxt = n => '<span class="stars" aria-label="' + n + ' of 3 stars">' + [1, 2, 3].map(i => '<i class="' + (i <= n ? 'on' : '') + '">★</i>').join('') + '</span>';
+  function openChallenges() {
+    if (!CH) return;
+    const total = CH.LIST.reduce((a, c) => a + (store.chal[c.id] || 0), 0);
+    const rows = CH.LIST.map((c, i) => {
+      const par = PARS()[c.id];
+      return '<button class="chal-row" data-chal-go="' + c.id + '"><span class="chal-n">' + (i + 1) + '</span><span class="grow"><b>' + esc(c.title) + '</b><span class="muted">' + esc(CH.goalText(c)) + ' · ' + esc(CH.oppText(c)) + '</span>' +
+        (par && par[0] ? '<span class="muted chal-par">★★ in ' + par[0] + ' turns · ★★★ in ' + par[1] + '</span>' : '') + '</span>' + starTxt(store.chal[c.id] || 0) + '</button>';
+    }).join('');
+    sheet('Challenges · ' + total + ' of ' + CH.LIST.length * 3 + ' ★', '<p class="muted small" style="margin:0 0 8px">Set deals, you go first. Meet the goal for a star; finish in fewer of your turns for more. No Undo, and a Hint means one star at most. Not counted in My stats.</p><div class="chal-list">' + rows + '</div>');
+    $('#sheet').addEventListener('click', e => {
+      const b = e.target.closest('[data-chal-go]');
+      if (!b) return;
+      closeSheet(); dropOverlay();
+      startChallenge(b.dataset.chalGo);
+    });
+  }
+  function startChallenge(id) {
+    const c = CH && CH.LIST.find(x => x.id === id);
+    if (!c || busyElsewhere()) return;
+    if (ui.tab !== 'play') showTab('play', true);
+    startGame({ kinds: ['human'].concat(c.opps.map(() => 'computer')), level: c.opps[0], levels: [null].concat(c.opps), styles: c.opps.map(() => null).concat([null]),
+      firstSeat: 0, rng: mulberry(c.seed), cities: !!c.cities, target: c.target || 15, challenge: c.id });
+  }
+  function gradeChallenge() {
+    const g = table && !table.online ? table.g : null;
+    if (!CH || !g || !g.challenge || !g.state.over) return null;
+    const c = CH.LIST.find(x => x.id === g.challenge);
+    if (!c) return null;
+    const r = CH.grade(c, g.state, 0, { myTurns: g.myTurns, reserves: g.reserves, hinted: g.hinted }, PARS());
+    if (!g.graded) {
+      g.graded = true;
+      const best = store.chal[c.id] || 0;
+      r.best = r.stars > best;
+      if (r.stars > best) store.chal[c.id] = r.stars;
+      g.grade = r;
+      save();
+    }
+    return Object.assign({ c }, g.grade || r);
   }
 
   // ------------------------------------------------------------------ making a move
@@ -422,6 +592,7 @@
     const v = table.view(mySeat());
     if (!canAct(v)) return;
     const seat = v.turn;
+    const recLen = !table.online ? table.g.study.rec.length : 0;
     // study record: what Hard would have done here, and how much worse this choice scores
     if (v.phase === 'main') recordStudy(v, seat, action);
     if (table.online) {
@@ -432,9 +603,20 @@
       renderPlay();
       return;
     }
-    try { table.g.state = E.apply(table.g.state, seat, action); }
-    catch (e) { nope(e.message); return; }
-    table.g.lastHuman = seat;
+    const g = table.g, before = g.state;
+    try { g.state = E.apply(before, seat, action); }
+    catch (e) { g.study.rec.length = recLen; nope(e.message); return; }
+    g.lastHuman = seat;
+    if (soloVsComputers(g)) {
+      // keep the spot for Undo (the last 8 of your moves), and count your turns and reserves for stats and stars
+      if (undoShown()) {
+        if (!Array.isArray(g.undo)) g.undo = [];
+        g.undo.push({ state: before, rec: recLen, race: g.study.race.length, myTurns: g.myTurns || 0, reserves: g.reserves || 0 });
+        if (g.undo.length > 8) g.undo.shift();
+      }
+      if (v.phase === 'main') { g.myTurns = (g.myTurns || 0) + 1; if (action.t === 'reserve') g.reserves = (g.reserves || 0) + 1; }
+    }
+    if (window.COACH) COACH.emit('acted');
     afterLocalMove();
   }
   function afterLocalMove() {
@@ -449,6 +631,9 @@
     const g = table.g, s = g.state;
     store.last = { players: s.players.map(p => ({ name: p.name, points: p.points, cards: p.cards.length })), result: s.result, me: 0,
       rec: g.study.rec, race: g.study.race, online: false, kinds: g.kinds };
+    g.undo = [];
+    ui.lastRecord = recordGame();
+    gradeChallenge();
   }
   function recordStudy(v, seat, action) {
     try {
@@ -478,7 +663,7 @@
       const st = g.state;
       if (st.over || g.kinds[st.turn] !== 'computer') return;
       const seat = st.turn;
-      try { g.state = E.apply(st, seat, B.decide(E.view(st, seat), seat, g.level || 'hard')); }
+      try { g.state = E.apply(st, seat, B.decide(E.view(st, seat), seat, (g.levels && g.levels[seat]) || g.level || 'hard', Math.random, g.styles && g.styles[seat])); }
       catch (e) { g.state = E.apply(st, seat, E.legal(st, seat)[0]); }
       afterLocalMove();
     }, BOT_MS);
@@ -521,9 +706,10 @@
       const cls = choose && v.nobleChoice.indexOf(id) >= 0 ? ' choose' : close <= 2 ? ' close' : '';
       return Art.noble(id, 'noble' + cls).replace('<svg ', '<svg data-noble="' + id + '" ');
     }).join('');
-    const rnd = '<div class="rnd">' + (v.finalRound && !v.over ? '<span class="final">Final round</span><br>' : '') + 'Round <b>' + (Math.floor(v.turns / v.n) + 1) + '</b>' +
+    const tgt = v.target || 15;
+    const rnd = '<div class="rnd">' + (v.finalRound && !v.over ? '<span class="final">Final round</span><br>' : '') + 'Round <b>' + (Math.floor(v.turns / v.n) + 1) + '</b>' + (tgt !== 15 && !isCities ? ' · to ' + tgt : '') +
       qBtn(isCities ? 'A city comes to you at the end of your turn once you have its prestige and bonuses (grey = that many of one colour; "other" = one colour not already shown). Then the round finishes; only city holders can win, most points first.' :
-        'First to 15 prestige ends the game, but the round is finished so everyone has the same number of turns. Most points wins; a tie goes to whoever bought fewer cards.') + '</div>';
+        'First to ' + tgt + ' prestige ends the game, but the round is finished so everyone has the same number of turns. Most points wins; a tie goes to whoever bought fewer cards.') + '</div>';
     const nobles = '<div class="nobles"><div class="ntiles">' + nob + '</div>' + rnd + '</div>';
 
     // market
@@ -669,7 +855,8 @@
 
   function actionBar(v, seat, my) {
     const me = v.players[seat];
-    const hintBtn = store.settings.hints && my && v.phase === 'main' ? '<button class="btn ghost" data-hint id="hint">Hint</button>' : '';
+    const undoBtn = my && canUndo() ? '<button class="btn ghost" data-undo id="undo" aria-label="Undo your last move"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>' : '';
+    const hintBtn = undoBtn + (store.settings.hints && my && v.phase === 'main' ? '<button class="btn ghost" data-hint id="hint">Hint</button>' : '');
     if (v.over) {
       const w = v.result.winners;
       return '<div class="say"><b>' + (w.length > 1 ? 'Shared win' : esc(w[0] === seat ? 'You win!' : v.players[w[0]].name + ' wins')) + '</b> · ' + v.players.map(p => p.points).join(' – ') + '</div>' +
@@ -878,6 +1065,10 @@
     const segb = t.closest('[data-set] button');
     if (segb) { store.settings[segb.parentElement.dataset.set] = segb.dataset.v; save(); renderPlay(); return; }
     if (t.closest('[data-start]')) { startGame(); return; }
+    if (t.closest('[data-daily]')) { startDaily(); return; }
+    if (t.closest('[data-chal]')) { openChallenges(); return; }
+    if (t.closest('[data-rules]')) { openRules(); return; }
+    if (t.closest('[data-stats]')) { openStats(); return; }
     const on = t.closest('[data-on]');
     if (on) { onlineBtn(on.dataset.on); return; }
     const sb = t.closest('[data-seat]');
@@ -899,7 +1090,14 @@
       return;
     }
     const me = v.players[seat];
+    if (t.closest('[data-undo]')) { undo(); return; }
     if (t.closest('[data-hint]')) {
+      if (!table.online) {
+        const g = table.g;
+        if (!g.hinted && countsInStats(g)) toast('Hints are on: this game counts as “with help” in My stats');
+        else if (!g.hinted && g.challenge) toast('With a Hint this challenge earns 1 star at most');
+        g.helped = true; g.hinted = true; save();
+      }
       const h = B.explain(v, seat);
       ui.hint = h.action; ui.hintWhy = h.why; ui.sel = null; ui.take = [];
       renderPlay(); return;
@@ -980,12 +1178,21 @@
       if (b.dataset.m === 'log') sheet('Game log', '<ul class="log">' + logHTML(v, mySeat()) + '</ul>');
       if (b.dataset.m === 'leave') confirmBox(v.over ? 'Leave this room?' : 'Leave this online game? A computer takes your seat.', 'Leave', leaveOnline);
       if (b.dataset.m === 'new') newGameAsk();
-      if (b.dataset.m === 'quit') confirmBox('Quit this game?', 'Quit', () => { clearTimeout(ui.botTimer); store.game = null; table = null; save(); renderPlay(); });
+      if (b.dataset.m === 'quit') confirmBox('Quit this game?' + (quitLoses() ? ' It counts as a loss in My stats.' : ''), 'Quit', () => { endLocalGame(); });
     });
   }
   function newGameAsk() {
-    if (table && !table.online && !table.g.state.over) confirmBox('Start a new game? This one ends.', 'New game', () => { clearTimeout(ui.botTimer); store.game = null; table = null; save(); renderPlay(); });
-    else { clearTimeout(ui.botTimer); store.game = null; table = null; save(); renderPlay(); }
+    if (table && !table.online && !table.g.state.over) confirmBox('Start a new game? This one ends' + (quitLoses() ? ' and counts as a loss in My stats.' : '.'), 'New game', endLocalGame);
+    else endLocalGame();
+  }
+  // a game vs computers that would be recorded in My stats (not the guided game, a challenge or friends on this device)
+  const countsInStats = g => !!(SP && g && soloVsComputers(g) && !g.tutorial && !g.challenge);
+  const quitLoses = () => !!(table && !table.online && !table.g.state.over && countsInStats(table.g) && table.g.myTurns > 0);
+  function endLocalGame() {
+    clearTimeout(ui.botTimer);
+    if (table && !table.online && !table.g.state.over) recordGame(); // leaving after your first move = a loss
+    if (tour && table && !table.online && table.g.tutorial) tour.stop();
+    store.game = null; table = null; ui.prev = null; save(); renderPlay();
   }
   function showEnd(v, seat) {
     if (!v.result) return;
@@ -993,10 +1200,29 @@
     const rows = order.map(s => '<div class="end-row' + (v.result.winners.indexOf(s.seat) >= 0 ? ' win' : '') + '"><span class="dot" style="width:10px;height:10px;border-radius:50%;background:' + SEAT_COL[s.seat] + '"></span><span class="grow">' + esc(v.players[s.seat].name) + '</span><b>' + s.points + '</b><span class="muted small">' + s.cards + ' cards</span></div>').join('');
     const rec = ui.study.rec.filter(r => r.seat === seat);
     const matched = rec.length ? Math.round(100 * rec.filter(r => r.same).length / rec.length) : null;
+    // what this game did for you: challenge stars, rating, awards
+    let extra = '';
+    const g = table && !table.online ? table.g : null;
+    const gr = g && g.challenge ? gradeChallenge() : null;
+    if (gr) extra += '<div class="end-chal"><b>' + esc(gr.c.title) + '</b>' + starTxt(gr.stars) + '<span class="muted small">' +
+      (gr.done ? 'Goal met in ' + g.myTurns + ' of your turns' + (gr.best ? ' · new best' : '') + (g.hinted ? ' · Hint used (1 star at most)' : '') : 'Goal not met: ' + esc(CH.goalText(gr.c))) + '</span></div>';
+    const got = ui.lastRecord;
+    if (g && got && countsInStats(g)) {
+      const bits = [];
+      if (got.elo) bits.push('Rating ' + got.elo.after + ' (' + (got.elo.change >= 0 ? '+' : '') + got.elo.change + ')');
+      else if (g.helped) bits.push('With help: not rated');
+      if (got.unlocked && got.unlocked.length) bits.push('Award: ' + got.unlocked.map(a => a.title).join(', '));
+      if (g.daily) bits.push('Daily deal done');
+      if (bits.length) extra += '<p class="muted small" style="margin:2px 0 0">' + esc(bits.join(' · ')) + '</p>';
+    }
+    const again = g && g.challenge ? '<button class="btn" data-chal-again>Try again</button>' : '';
     sheet(v.result.winners.length > 1 ? 'Shared win' : (v.result.winners[0] === seat ? 'You win!' : v.players[v.result.winners[0]].name + ' wins'),
-      '<div class="end-card">' + rows + (matched !== null ? '<p class="muted small" style="margin:4px 0 0">You matched the Hard computer on ' + matched + '% of your moves.</p>' : '') +
-      '<button class="btn primary" data-go-study>Study this game</button></div>');
-    $('#sheet').addEventListener('click', e => { if (e.target.closest('[data-go-study]')) { closeSheet(); showTab('study', true); } });
+      '<div class="end-card">' + rows + extra + (matched !== null ? '<p class="muted small" style="margin:4px 0 0">You matched the Hard computer on ' + matched + '% of your moves.</p>' : '') +
+      '<div class="row end-btns">' + again + '<button class="btn primary grow" data-go-study>Study this game</button></div></div>');
+    $('#sheet').addEventListener('click', e => {
+      if (e.target.closest('[data-go-study]')) { closeSheet(); showTab('study', true); }
+      if (e.target.closest('[data-chal-again]')) { const id = g.challenge; closeSheet(); dropOverlay(); endLocalGame(); startChallenge(id); }
+    });
   }
 
   // ================================================================== CARDS (efficiency + turns from scratch)
@@ -1093,6 +1319,16 @@
     const sw = (key, title, sub) => '<div class="setrow"><div class="grow"><b>' + title + '</b><span>' + sub + '</span></div><label class="switch"><input type="checkbox" data-sw="' + key + '"' + (s[key] ? ' checked' : '') + '><span></span></label></div>';
     vSet.innerHTML = '<div class="set scroll">' +
       '<div class="panel">' + sw('showTurns', 'Turns on cards', 'How many turns of gems each card is from you.') + sw('hints', 'Hint button', 'Shows what the Hard computer would do.') + '</div>' +
+      '<div class="panel"><div class="setrow"><div class="grow"><b>Points to win</b><span>15 is the standard game. Your next game vs computers.</span></div></div>' +
+      '<div class="seg" data-set-opt="target">' + E.TARGETS.map(n => '<button aria-pressed="' + (s.target === n) + '" data-v="' + n + '">' + n + '</button>').join('') + '</div>' +
+      '<div class="setrow" style="margin-top:6px"><div class="grow"><b>Hard computers’ styles</b><span>Mixed: each Hard computer plays its own way (' + Object.keys(B.STYLES).map(k => B.STYLES[k].name).join(', ') + '), all about as strong.</span></div></div>' +
+      '<div class="seg" data-set-opt="styles"><button aria-pressed="' + (s.styles !== 'mixed') + '" data-v="balanced">All balanced</button><button aria-pressed="' + (s.styles === 'mixed') + '" data-v="mixed">Mixed</button></div></div>' +
+      (SC || SP ? '<div class="panel">' +
+        (SC ? '<div class="setrow"><div class="grow"><b>Rules</b><span>How to play, in short sections.</span></div><button class="btn small" data-rules>Open</button></div>' +
+          '<div class="setrow"><div class="grow"><b>Guided game</b><span>One game against Easy with tips on screen.</span></div><button class="btn small" data-tutorial>Start</button></div>' : '') +
+        (SP ? '<div class="setrow"><div class="grow"><b>My stats</b><span>Wins per level, rating, awards and the Daily.</span></div><button class="btn small" data-stats>Open</button></div>' : '') +
+        (CH ? '<div class="setrow"><div class="grow"><b>Challenges</b><span>' + CH.LIST.length + ' set deals with a goal and stars.</span></div><button class="btn small" data-chal>Open</button></div>' : '') +
+        '</div>' : '') +
       '<div class="panel" id="fx-panel"><span class="label">Sound & effects</span></div>' +
       '<div class="panel"><div class="setrow"><div class="grow"><b>Your name</b><span>Shown to friends online.</span></div><input class="txt" id="set-name" maxlength="20" style="max-width:170px" value="' + esc(s.name) + '" placeholder="Name"></div></div>' +
       '<div class="panel"><div class="row"><b class="grow">How strong are the computers?</b></div><p class="small muted" style="margin:6px 0 0">' + esc(strengthNote()) + '</p></div>' +
@@ -1103,6 +1339,14 @@
       '<p class="ver">Splendor Lab · game facts only, original art · <a href="https://github.com/TimothyHadfield/splendor">source</a></p></div>';
     FX.renderSettings($('#fx-panel'));
   }
+  vSet.addEventListener('click', e => {
+    const b = e.target.closest('[data-set-opt] button');
+    if (b) { const k = b.parentElement.dataset.setOpt; store.settings[k] = k === 'target' ? Number(b.dataset.v) : b.dataset.v; save(); renderSettings(); return; }
+    if (e.target.closest('[data-rules]')) { openRules(); return; }
+    if (e.target.closest('[data-stats]')) { openStats(); return; }
+    if (e.target.closest('[data-tutorial]')) { startTutorial(); return; }
+    if (e.target.closest('[data-chal]')) { openChallenges(); return; }
+  });
   vSet.addEventListener('change', e => {
     const k = e.target.dataset && e.target.dataset.sw;
     if (k) { store.settings[k] = e.target.checked; save(); }
@@ -1110,6 +1354,29 @@
   });
 
   // ------------------------------------------------------------------ boot
+  if (SP) {
+    SP.init(startDaily);
+    window.Profile.onChange(what => {
+      if (what === 'close' && !ui.closingQuiet) dropOverlay();
+      if ((what === 'result' || what === 'me' || what === 'reset' || what === 'import') && ui.tab === 'play' && !table && !ui.online) renderPlay();
+    });
+  }
+  if (SC) {
+    const live = () => (table && !table.online && table.g.tutorial ? table.g.state : null);
+    tour = COACH.tour({
+      id: SC.ID, steps: SC.steps(live),
+      pauseIf: () => ui.tab !== 'play' || !live() || modalOpen() || !!$('.flyer'),
+    });
+    new MutationObserver(() => COACH.update()).observe(vPlay, { childList: true });
+    if (table && !table.online && table.g.tutorial && !table.g.state.over) tour.resume();
+  }
+  if (window.PWA) window.PWA.safeToReload = () => {
+    if (modalOpen() || store.online || ui.online || (table && table.online) || $('.flyer')) return false;
+    const a = document.activeElement;
+    if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT')) return false;
+    // a game in progress is saved after every move; reload only between games or away from the table
+    return !table || table.g.state.over || ui.tab !== 'play';
+  };
   const startTab = (location.hash || '').slice(1);
   try { history.replaceState({ tab: 'play' }, '', location.pathname + location.search); } catch (e) { /* file:// */ }
   if (['cards', 'study', 'settings'].indexOf(startTab) >= 0) { showTab('play', false); showTab(startTab, true); } else showTab('play', false);
@@ -1121,6 +1388,7 @@
       renderPlay();
     }).catch(() => { net.connecting = false; store.online = false; ui.online = false; save(); renderPlay(); });
   }
+  if (!table && !store.online) offerTutorial();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleBot(); else clearTimeout(ui.botTimer); });
   // the same game open in two tabs: a move made in the other tab shows up here, instead of one tab overwriting the other
   window.addEventListener('storage', e => {
@@ -1145,5 +1413,6 @@
   });
 
   // test hook for headless checks (no effect on play)
-  window.__sp = { state: () => table && !table.online ? table.g.state : null, view: () => table ? table.view(mySeat()) : null };
+  window.__sp = { state: () => table && !table.online ? table.g.state : null, view: () => table ? table.view(mySeat()) : null,
+    game: () => (table && !table.online ? table.g : null), act: a => act(a), startGame, startDaily, startChallenge, startTutorial, undo, canUndo, openRules, openStats, openChallenges, ui };
 })();

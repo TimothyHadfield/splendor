@@ -13,10 +13,23 @@
   // ------------------------------------------------------------ weights per level
   const LEVELS = {
     // Medium: chases points per turn, ignores what bonuses and nobles are worth
-    medium: { bonus: 0.35, noble: 0, block: 0, reserve: 0.0, early: 0, horizon: 1.0 },
+    // (it also reserves a level-3 target when the gold gets it there a turn sooner, so it uses every kind of move)
+    medium: { bonus: 0.35, noble: 0, block: 0, reserve: 1, resLvl: 3, resVal: 4, early: 0, horizon: 1.0, jit: 0.1 },
     // Hard: values bonuses by what they unlock, chases nobles, reserves and blocks
-    hard: { bonus: 0.9, noble: 0.55, block: 1, reserve: 0, early: 1, horizon: 1.0 }, // reserving for gold measured worse (42% vs this), so Hard reserves only to block
+    hard: { bonus: 0.9, noble: 0.55, block: 1, reserve: 0, early: 1, horizon: 1.0, jit: 0.03 }, // reserving for gold measured worse (42% vs this), so Hard reserves only to block
   };
+  // jit: near-equal choices are broken at random (scores nudged by up to ±jit/2), so the same deal is never
+  // played the same way twice and a repeat player can't learn a fixed line. Hints and Study use no random
+  // numbers, so they always give the same advice.
+  // Styles for Hard computers (a "personality" on top of the level). Each one measured about as strong as plain Hard
+  // (600 two-player games each vs plain Hard, 2026-10-27): Nobles 56%, Big cards 53%, Reserver 54%.
+  const STYLES = {
+    balanced: { name: 'Balanced', note: 'Plain Hard', w: {} },
+    nobles: { name: 'Nobles', note: 'Builds bonuses toward the nobles', w: { noble: 1.3, bonus: 1.05 } },
+    big: { name: 'Big cards', note: 'Saves up for the big level-3 cards', w: { den: 0.9, pow: 1.15 } },
+    reserver: { name: 'Reserver', note: 'Reserves its targets for the gold', w: { reserve: 1, resLvl: 3, resVal: 3, resTok: 9 } },
+  };
+  const nudge = W => (W.rng && W.jit ? 1 + W.jit * (W.rng() - 0.5) : 1);
 
   function visibleCards(v) {
     const out = [];
@@ -81,7 +94,7 @@
     // late game: points are what count
     if (W.noble && cityAfter(v, p, id)) val += 6;
     const lead = Math.max.apply(null, v.players.map(q => q.points));
-    if (lead >= 10) val = c.points * 1.4 + (val - c.points) * 0.4;
+    if (lead >= Engine.targetOf(v) - 5) val = c.points * 1.4 + (val - c.points) * 0.4;
     return val;
   }
 
@@ -95,14 +108,14 @@
     for (const c of cands) {
       c.turns = Engine.turnsToAfford(p, c.id, v.bank);
       c.value = cardValue(v, p, c.id, W, bw);
-      c.score = c.turns === Infinity ? -1 : c.value / Math.pow(c.turns + (W.den || 1.15), W.pow || 1);
+      c.score = c.turns === Infinity ? -1 : nudge(W) * c.value / Math.pow(c.turns + (W.den || 1.15), W.pow || 1);
     }
     cands.sort((a, b) => b.score - a.score);
     return { p, bw, cands };
   }
 
   // gems that bring the top targets closest (weighted), avoiding going over 10
-  function bestTake(v, seat, legalTakes, targets, bw) {
+  function bestTake(v, seat, legalTakes, targets, bw, W) {
     const p = v.players[seat];
     let best = null, bestS = -Infinity;
     for (const a of legalTakes) {
@@ -121,6 +134,7 @@
       const over = Engine.tokens(q) - MAX_TOKENS;
       if (over > 0) s -= over * 0.35;
       s += g.length * 0.01;
+      s *= nudge(W || {});
       if (s > bestS) { bestS = s; best = a; }
     }
     return best;
@@ -202,7 +216,7 @@
         }
         continue;
       }
-      if (after >= WIN_POINTS) {
+      if (after >= Engine.targetOf(v)) {
         const others = v.players.filter((q, i) => i !== seat).map(q => q.points);
         if (after > Math.max.apply(null, others)) return { action: a, why: 'This card takes you to ' + after + ' points.' };
       }
@@ -221,7 +235,7 @@
     let bestBuy = null, bbs = -Infinity;
     for (const a of buys) {
       const c = cands.find(x => x.id === a.id);
-      const s = c.value + (c.reserved ? 0.35 : 0);
+      const s = (c.value + (c.reserved ? 0.35 : 0)) * nudge(W);
       if (s > bbs) { bbs = s; bestBuy = a; }
     }
     if (bestBuy) {
@@ -229,15 +243,15 @@
       if (bbs / Math.pow(W.den || 1.15, W.pow || 1) >= topVal * (W.buyRatio || 0.8) || !takes.length || Engine.tokens(p) >= 9) return { action: bestBuy, why: 'Best card you can buy now.' };
     }
     // 4. reserve a strong target when gold would get it there quicker (Hard only)
-    if (W.reserve && top && !top.reserved && p.reserved.length < 2 && v.bank[5] > 0 && CARDS[top.id].level >= 2 && top.turns >= 1) {
+    if (W.reserve && top && !top.reserved && p.reserved.length < 2 && v.bank[5] > 0 && CARDS[top.id].level >= (W.resLvl || 2) && top.turns >= 1) {
       const q = { gems: p.gems.slice(), bonus: p.bonus }; q.gems[5]++;
       const t2 = Engine.turnsToAfford(q, top.id, v.bank);
-      if (t2 < top.turns && top.value >= 3 && Engine.tokens(p) <= 8) return { action: { t: 'reserve', id: top.id }, why: 'Reserve your best target; the gold saves a turn.' };
+      if (t2 < top.turns && top.value >= (W.resVal || 3) && Engine.tokens(p) <= (W.resTok || 8)) return { action: { t: 'reserve', id: top.id }, why: 'Reserve your best target; the gold saves a turn.' };
     }
     // 5. take gems toward the top targets
     const reach = cands.filter(c => c.turns !== Infinity).slice(0, 3);
     if (takes.length) {
-      const a = bestTake(v, seat, takes, reach, bw);
+      const a = bestTake(v, seat, takes, reach, bw, W);
       if (a) return { action: a, why: top ? 'Gems toward your best target.' : 'Most useful gems.' };
     }
     if (bestBuy) return { action: bestBuy, why: 'Best card you can buy now.' };
@@ -266,15 +280,18 @@
       if (Engine.turnsToAfford(q, id, v.bank) !== 0) return;
       const gain = CARDS[id].points + nobleGain(v, q, id);
       if (v.mode === 'cities') { if (cityAfter(v, q, id) && gain + 1 > bs) { bs = gain + 1; best = id; } return; }
-      if (q.points + gain >= WIN_POINTS && gain > bs) { bs = gain; best = id; }
+      if (q.points + gain >= Engine.targetOf(v) && gain > bs) { bs = gain; best = id; }
     }));
     return best;
   }
 
-  function decide(v, seat, level, rng) {
+  // style: one of STYLES (Hard only; other levels ignore it)
+  function decide(v, seat, level, rng, style) {
     rng = rng || Math.random;
     if (level === 'easy') return easy(v, seat, rng);
-    return smart(v, seat, typeof level === 'object' ? level : (LEVELS[level] || LEVELS.hard)).action;
+    const st = level === 'hard' && STYLES[style] ? STYLES[style].w : {};
+    const W = Object.assign({}, typeof level === 'object' ? level : (LEVELS[level] || LEVELS.hard), st, { rng });
+    return smart(v, seat, W).action;
   }
   function explain(v, seat) { return smart(v, seat, LEVELS.hard); }
 
@@ -287,5 +304,5 @@
     return p.points + sum(p.bonus) * 0.45 + p.nobles.length * 0 + future * 0.6 + sum(p.gems.slice(0, 5)) * 0.08 + p.gems[5] * 0.12;
   }
 
-  return { decide, explain, evalFor, LEVELS, plan };
+  return { decide, explain, evalFor, LEVELS, STYLES, plan };
 });

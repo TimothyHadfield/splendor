@@ -1,0 +1,10 @@
+{
+  "repo": "splendor",
+  "ready": "!!(window.__sp && document.querySelector('#v-play #deal, #v-play .market'))",
+  "play": [
+    "(async () => { const w = ms => new Promise(r => setTimeout(r, ms)); if (window.COACH && COACH.closeOffer) COACH.closeOffer(); const S = window.__sp; if (!S.state()) S.startGame({ kinds: ['human', 'computer'], level: 'easy', firstSeat: 0 }); await w(400); const s = S.state(); window.__t = s.turns; const a = SpEngine.legal(s, 0).find(x => x.t === 'take' && x.g.length === 3); S.act(a); })()"
+  ],
+  "played": "(() => { const s = window.__sp.state(); return !!(s && s.turns >= window.__t + 2 && s.turn === 0 && !s.over); })()",
+  "safe": "(() => { const b = document.querySelector('[data-tab=\"settings\"]'); if (b) b.click(); })()",
+  "debug": "JSON.stringify((() => { const s = window.__sp.state(); return s ? { turns: s.turns, before: window.__t, turn: s.turn, phase: s.phase, over: s.over } : null; })())"
+}
