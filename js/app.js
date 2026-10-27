@@ -423,6 +423,7 @@
   // opt (all optional): { kinds, level, levels, cities, target, rng, firstSeat, daily, tutorial, challenge, styles }
   function startGame(opt) {
     opt = opt || {};
+    if (window.COACH && COACH.closeOffer) COACH.closeOffer(); // the "New to Splendor?" offer never sits over a game
     const s = store.settings;
     const kinds = opt.kinds || ['human'].concat(s.seats.filter(k => k !== 'off'));
     const level = opt.level || s.level;
