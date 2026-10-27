@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-21 (visibility pass; before that 2026-10-20: first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
+Last updated: 2026-10-27 (improvement pass vs the official app: ladder fix, points-to-win, Hard styles, Undo, Daily, 24 challenges, My stats, guided game + Rules, install/offline, table fill, richer art, key moments; before that 2026-10-21 visibility pass; before that 2026-10-20: first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -14,7 +14,8 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 |---|---|
 | Engine: exact 90 cards, 10 nobles, 4/5/7 gems + 5 gold, reserve (max 3, gold), 10-gem limit, nobles, 15-point final round, tie-breaks | Done. 25 engine tests; 9/9 deliberately broken rules caught (`tools/mutants.js`). |
 | Cities of Splendor "Cities" variant (3 of 7 double-sided tiles, no nobles) | Done, Settings switch on the setup screen. 4 tests. |
-| Computers Easy / Medium / Hard | Done, measured, 1,000 two-player games per pair: Hard beats Easy 93.2%, Medium 69.7%; Medium beats Easy 82.7%. Cities: 92.3 / 76.6 / 70.8%. |
+| Computers Easy / Medium / Hard | Done, measured (10-27), 1,000 two-player games per pair: Hard beats Easy 92.6%, Medium 67.6%; Medium beats Easy 78.8%. Cities: 92.8 / 79.5 / 69.4%. Every level reserves and takes 2 (`tests/ladder.test.js`); no level replays a game identically (60/60 identical replays before, 0/60 after; `tools/ladder.js`). |
+| Improvement pass (10-27) | Points to win 10/15/18/21 (Settings, 15 default, computers play to it); Hard styles (balanced / mixed: noble hunter, big buyer, reserver; each ≥42% vs Hard, ≥58% vs Medium); Undo vs computers (unrated); Daily deal vs Hard (no Undo); 24 challenges with stars from Hard's own runs (`tools/challenges.js` -> `js/challenge-pars.js`); My stats + 11 awards (`_profile`); guided first game + Rules sheet (`_coach`, tabs wrap); install + offline (`_pwa` 1.2.0, `tools/pwa-check.mjs` 18/18, failed 10 on the old build); phone: spare height goes to your area + faint card spots; laptop: Race panel above the log; two original scenes per card level + richer nobles; big noble/city/final-round moments; Play again; your-turn line shows the last move. |
 | Turns-to-afford badges, Hint ("what Hard would do and why") | Done. Turns-to-afford matches brute force on 300 cases. |
 | Cards tab: 90 cards sorted by points per gem / cheapest / win rate; nobles; 14 cities; measured notes | Done. First player wins 44.7% of Hard-vs-Hard games; 28.2 rounds average. |
 | Study tab: % matched Hard, points lost, points race, per-move table | Done. Online games now feed the points race too. |
@@ -40,6 +41,11 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 
 ## Traps
 - **online.js cache stamp (2026-10-27):** every import of `js/online.js` uses `?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, bump the importing file's `?v=` (and pwa.js `data-version`), then `node ../_online/tools/stamp.mjs --check .` must say OK.
+- Kit copies (never edit here, `-text` in .gitattributes): `js/profile.js` + `css/profile.css` (`_profile`), `js/coach.js` + `css/coach.css` (`_coach`), `js/pwa.js` + `sw.js` (`_pwa` 1.2.0). Game-side glue: `js/spprofile.js`, `js/spcoach.js`, `js/challenges.js`. The coach rules tabs wrap via an override in index.html (`.coach-rules .coach-rules-nav`).
+- Bump pwa.js `data-version` with the other `?v=` tags. `tests/pwa-check.json` drives `window.__sp` (test hook at the end of app.js).
+- What counts in My stats: only whole games where every other seat is a computer; Hint/Undo = "with help" (unrated); quitting after your first move = a loss; guided game and challenges never count; no Undo in the Daily or a challenge.
+- After changing bots.js: rerun `node tests/ladder.test.js`, `node tools/build-strength.js 1000` and `node tools/challenges.js` (pars), and update the ratings in `js/spprofile.js`.
+- Phone portrait: `fitMarket()` adds class `grow` + `--mex` to `#game` (spare height to your area) only when the cards are width-limited.
 - `js/online.js` is a COPY of `../_online/online.js`. Never edit it here. Same for `js/fx.js` (copy of `../_fx/fx.js`) and `js/table.js` / `css/table.css` (copies of `../_table/`). Working copies show CRLF (autocrlf); the committed blobs are byte-identical.
 - The click handler treats `[data-new]` as "New game": newly dealt market cards are marked `data-dealt`, never `data-new`.
 - Never clone a card's innerHTML for a flight (badges and digits ride along); `fly()` redraws it with `Art.card`.
@@ -91,6 +97,9 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Short screens (height ≤620) hide the 3 demo cards on setup so Deal stays above the tab bar.
 - Edge pass: phone your-area 86 -> 100 px to fit real card columns; opponents' hands are card backs everywhere (known ones visible in the seat sheet); the count pill shows on a column from 2 cards.
 - Computers don't move while the page is in the background; they continue when you return.
+- 10-27: Medium = level-3-only reserving + small jitter (blocking made Hard vs Medium too close, 62%); Hard jitter 0.03; styles apply to Hard only; Elo ratings Easy 1200 / Medium 1430 / Hard 1600.
+- 10-27: Undo built because the improvement brief ordered it (it was parked as "not in the real game"); it takes back your whole last move and the computers' replies.
+- 10-27: challenge stars: 2 = Hard's 80th-percentile turns, 3 = Hard's best quarter and ≥2 turns quicker; a Hint caps at 1 star.
 
 ## NOT verified
 - Real iPhone (only Safari's engine at iPhone size). Sounds never heard by a person (headless only; Web Audio ran in Chromium).
@@ -100,8 +109,9 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Which two city sides share one physical tile: one data source only.
 - Online room across two real devices (two headless browsers only).
 - Visibility pass: SE (320 px) still below the 12 px floor (cost digits 9.3 px, gem piles 34x33 tap size); SE landscape still cramped (opponents' gem colours hidden there); 5-colour cities 7.6 px numbers on phones; your own bought-card bands stay small (counts on the front card carry the info). Not seen on a real iPhone.
+- 10-27 pass: install to home screen and offline only in headless WebKit (pwa-check), not on a real iPhone; challenge pars from 80 Hard runs each (c15 only just passes at 20%); Daily streak across real days; reviewer's remaining asks (set-position puzzles, per-seat style choice, an Expert level, opponents' bonus counts on phones) not built.
 - City tile numbers: match the rulebook's 3 printed examples + 3 data sets (lecodex, hexanome JSON, CSV); not checked against a physical tile.
 
 ## Rejected / parked
 - ~~Trading Posts, Strongholds, The Orient modules~~ parked: bigger rule sets, not asked for; data was found.
-- ~~Undo~~ not in the real game.
+- (Undo was parked as "not in the real game"; built 10-27 vs computers only, per the improvement brief.)

@@ -55,3 +55,9 @@
 - **Built:** bigger cost/noble/city numbers in the art; phone bands thinned so the market grows; opponents' gem colours on phones; SE bank column; landscape market full height; laptop nobles column; bigger opponent pieces on laptop. Files: `index.html`, `js/art.js`, `js/app.js` (fitMarket).
 - **Verified:** check.mjs on 34 shots (6 real bot-game states x 5 sizes + 2 tabs) fails 160 before, passes after in WebKit and Chromium; real taps (card select, take 3) at 4 sizes in both engines; engine 35, fx 13, online 6; sp-fix 35/35; edge.mjs 41/42 (look-landscape fails on purpose); one read-only reviewer, its clip bug fixed.
 - **Open:** SE still under the 12 px floor; real iPhone.
+
+## 2026-10-27 — improvement pass vs the official app / BGA
+- **Asked** (manager brief): fix the phone band under the bank and the laptop's empty log column; check the level ladder; add rival options; challenges, AI personalities, Undo, end review; kits `_coach`, `_profile`, `_pwa` 1.2.0, `_fx` re-copy; richer original art and bigger key moments.
+- **Built:** points to win 10/15/18/21; Medium reserves, every level jitters; Hard styles; Undo vs computers; Daily; 24 challenges with measured stars; My stats + awards; guided game + Rules sheet; install/offline; spare phone height to your area + card spots; laptop Race panel; two scenes per card level, richer nobles; noble/city/final-round moments; Play again; last move on the your-turn line.
+- **Verified:** engine 37 (2 new, failed first), ladder 8 (failed 2 on old bots), profile 13, fx 13, online 6; pwa-check 18/18 (10 fails on the old build); screenshots 393/320/659×393/1280/1440 in Chromium + 393/1440 WebKit, 0 errors, 0 overflow; one read-only reviewer, 5 of its 10 points fixed.
+- **Open:** real iPhone; reviewer's set-position puzzles, per-seat styles, Expert level, opponents' bonus counts on phones.
