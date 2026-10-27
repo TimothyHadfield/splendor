@@ -61,37 +61,82 @@
       <g transform="translate(19 17) scale(.62)">${gemShape(k)}</g></svg>`;
   }
 
-  // card illustration: an abstract scene (mine / caravan / city) tinted by the bonus colour
+  // card illustration: an original scene tinted by the bonus colour. Level 1: a gem mine at dusk with a loaded cart;
+  // level 2: a merchant ship under the moon; level 3: a city at night with a domed palace in the gem's colour.
+  // Every scene gets a soft light from the gem's corner and a vignette, so the cards read as lit, not flat.
   function scene(card) {
     const k = card.bonus, [f, l, d] = PAL[k];
     const seed = card.id * 37 + 11;
     const r = i => ((Math.sin(seed + i * 12.9898) * 43758.5453) % 1 + 1) % 1;
+    const n1 = v => v.toFixed(1);
     const id = 'g' + (uid++);
-    const sky = card.level === 1 ? ['#33405e', '#5a6a8c'] : card.level === 2 ? ['#4a3a5e', '#8a6a7c'] : ['#1d2c4a', '#3c5a8a'];
-    let s = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset="1" stop-color="${sky[1]}"/></linearGradient></defs>
+    const sky = card.level === 1 ? ['#2c3654', '#6a6a8a', '#b8806a'] : card.level === 2 ? ['#3a2e52', '#7a5a78', '#c08a7a'] : ['#141f3a', '#28406e', '#3c5a8a'];
+    const glow = k === 4 ? '#b9b4d6' : l;
+    let s = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset=".7" stop-color="${sky[1]}"/><stop offset="1" stop-color="${sky[2]}"/></linearGradient>
+        <radialGradient id="${id}l" cx=".78" cy=".12" r=".75"><stop offset="0" stop-color="${glow}" stop-opacity=".45"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient>
+        <radialGradient id="${id}v" cx=".5" cy=".45" r=".75"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+        <radialGradient id="${id}w" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffd27a" stop-opacity=".9"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></radialGradient></defs>
       <rect width="100" height="100" fill="url(#${id})"/>`;
-    if (card.level === 1) { // a mine in the hills
-      s += `<path d="M0 70 Q25 ${48 + r(1) * 12} 50 62 T100 ${56 + r(2) * 10} V100 H0Z" fill="#3f4a3c"/>
+    // stars in the upper sky (fewer at dusk)
+    const nst = card.level === 3 ? 9 : card.level === 2 ? 5 : 3;
+    for (let i = 0; i < nst; i++) s += `<circle cx="${n1(4 + r(30 + i) * 52)}" cy="${n1(3 + r(40 + i) * 30)}" r="${n1(0.5 + r(50 + i) * 0.7)}" fill="#fff" opacity="${n1(0.45 + r(60 + i) * 0.5)}"/>`;
+    if (card.level === 1) { // a gem mine in the hills: far ridge, near hill, the mine mouth with lantern light, rails and a loaded cart
+      const mx = 30 + r(3) * 30;
+      s += `<path d="M0 60 L14 ${n1(46 + r(8) * 6)} L28 56 L44 ${n1(42 + r(9) * 8)} L62 58 L80 ${n1(44 + r(10) * 6)} L100 54 V100 H0Z" fill="#4a4f62" opacity=".8"/>
+        <path d="M0 70 Q25 ${n1(48 + r(1) * 12)} 50 62 T100 ${n1(56 + r(2) * 10)} V100 H0Z" fill="#3f4a3c"/>
         <path d="M0 82 Q30 70 60 80 T100 76 V100 H0Z" fill="#2c3529"/>
-        <path d="M${30 + r(3) * 30} 78 a12 12 0 0 1 24 0 Z" fill="#14130f"/>
-        <rect x="${28 + r(3) * 30}" y="76" width="28" height="3" fill="#6b5233"/>`;
-      for (let i = 0; i < 3; i++) s += `<circle cx="${15 + i * 30 + r(4 + i) * 10}" cy="${86 + r(7 + i) * 6}" r="2.6" fill="${l}" stroke="${d}" stroke-width=".8"/>`;
-    } else if (card.level === 2) { // a ship / caravan route
-      s += `<path d="M0 66 H100 V100 H0Z" fill="#284057"/><path d="M0 66 Q25 62 50 66 T100 66" stroke="#5f86a8" stroke-width="1.5" fill="none"/>
-        <path d="M${22 + r(1) * 30} 66 h36 l-6 9 h-24 z" fill="#5a3b22"/>
-        <path d="M${40 + r(1) * 30} 64 V${30 + r(2) * 8} L${58 + r(1) * 30} 60 Z" fill="#e8dcc0"/>
-        <path d="M${39 + r(1) * 30} 64 V${30 + r(2) * 8}" stroke="#3a2614" stroke-width="1.5"/>
-        <circle cx="${78 - r(3) * 50}" cy="${20 + r(4) * 10}" r="6" fill="#f3e3b0" opacity=".8"/>`;
-    } else { // a city of towers
-      s += `<path d="M0 78 H100 V100 H0Z" fill="#2b2a33"/>`;
+        <circle cx="${n1(mx + 12)}" cy="72" r="16" fill="url(#${id}w)" opacity=".55"/>
+        <path d="M${n1(mx)} 78 a12 12 0 0 1 24 0 Z" fill="#14130f"/>
+        <path d="M${n1(mx - 1)} 78 a13 13 0 0 1 26 0" fill="none" stroke="#6b5233" stroke-width="2.4"/>
+        <rect x="${n1(mx - 2)}" y="76" width="28" height="3" fill="#6b5233"/>
+        <circle cx="${n1(mx + 2)}" cy="70" r="1.6" fill="#ffd27a"/>
+        <path d="M${n1(mx + 4)} 79 L${n1(mx - 14)} 99 M${n1(mx + 20)} 79 L${n1(mx + 34)} 99" stroke="#8a7a62" stroke-width="1" opacity=".8"/>`;
+      const cx = mx + (r(11) < 0.5 ? -16 : 22);
+      s += `<g transform="translate(${n1(cx)} 82)"><path d="M0 0 h16 l-2 8 h-12 z" fill="#5a3b22" stroke="#2a1a0e" stroke-width=".8"/>
+        <circle cx="4" cy="9" r="1.8" fill="#222"/><circle cx="12" cy="9" r="1.8" fill="#222"/>
+        <circle cx="5" cy="-1" r="2.6" fill="${f}" stroke="${d}" stroke-width=".7"/><circle cx="10" cy="-2" r="2.8" fill="${l}" stroke="${d}" stroke-width=".7"/><circle cx="8" cy="1" r="2.4" fill="${f}" stroke="${d}" stroke-width=".7"/></g>`;
+      for (let i = 0; i < 3; i++) s += `<circle cx="${n1(12 + i * 32 + r(4 + i) * 8)}" cy="${n1(90 + r(7 + i) * 6)}" r="2" fill="${l}" stroke="${d}" stroke-width=".6" opacity=".9"/>`;
+    } else if (card.level === 2) { // a merchant ship on a moonlit sea, a far coast, the gem's pennant on the mast
+      const sx = 22 + r(1) * 30, top = 28 + r(2) * 8, mn = { x: 16 + r(3) * 30, y: 16 + r(4) * 10 };
+      s += `<circle cx="${n1(mn.x)}" cy="${n1(mn.y)}" r="11" fill="#f3e3b0" opacity=".18"/><circle cx="${n1(mn.x)}" cy="${n1(mn.y)}" r="6" fill="#f6ead0" opacity=".9"/>
+        <path d="M0 64 Q12 58 22 62 Q34 55 46 62 L46 66 H0Z" fill="#2c2a3e" opacity=".85"/>
+        <path d="M0 66 H100 V100 H0Z" fill="#284057"/>
+        <path d="M${n1(mn.x - 6)} 70 h12 M${n1(mn.x - 4)} 75 h8 M${n1(mn.x - 3)} 80 h6" stroke="#f3e3b0" stroke-width="1.1" opacity=".5"/>
+        <path d="M0 66 Q25 62 50 66 T100 66" stroke="#5f86a8" stroke-width="1.5" fill="none"/>
+        <path d="M6 86 q6 -2 12 0 M60 90 q7 -2 14 0 M30 95 q5 -2 10 0" stroke="#5f86a8" stroke-width="1" fill="none" opacity=".7"/>
+        <path d="M${n1(sx)} 66 h36 l-6 9 h-24 z" fill="#5a3b22" stroke="#2a1a0e" stroke-width=".8"/>
+        <path d="M${n1(sx + 4)} 69 h28" stroke="#8a6a42" stroke-width="1"/>
+        <path d="M${n1(sx + 18)} 64 V${n1(top)} L${n1(sx + 36)} 60 Z" fill="#efe4c8"/>
+        <path d="M${n1(sx + 16)} 63 V${n1(top + 8)} L${n1(sx + 4)} 62 Z" fill="#d9ccae"/>
+        <path d="M${n1(sx + 17)} 64 V${n1(top - 3)}" stroke="#3a2614" stroke-width="1.5"/>
+        <path d="M${n1(sx + 17)} ${n1(top - 3)} l7 2 l-7 2 z" fill="${f}" stroke="${d}" stroke-width=".5"/>
+        <circle cx="${n1(sx + 8)}" cy="70.5" r="1.1" fill="#ffd27a"/>`;
+    } else { // a city at night: stars, a crescent moon, towers with lit windows and a palace dome in the gem's colour
+      s += `<path d="M44 12 a8 8 0 1 0 6 12 a6.5 6.5 0 1 1 -6 -12z" fill="#f3e3b0" opacity=".85"/>
+        <path d="M0 64 h8 v-6 h6 v6 h10 v-10 h5 v10 h12 v-4 h8 v4 h51 V100 H0Z" fill="#232838" opacity=".9"/>`;
+      const pal = Math.floor(r(12) * 3) + 1;
       for (let i = 0; i < 5; i++) {
-        const x = 8 + i * 18 + r(i) * 6, h = 22 + r(i + 5) * 34, w = 11 + r(i + 9) * 5;
-        s += `<rect x="${x.toFixed(1)}" y="${(78 - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${i % 2 ? '#4a4757' : '#5d596c'}"/>
-          <path d="M${x.toFixed(1)} ${(78 - h).toFixed(1)} l${(w / 2).toFixed(1)} -9 l${(w / 2).toFixed(1)} 9z" fill="${d}"/>
-          <rect x="${(x + w / 2 - 1.5).toFixed(1)}" y="${(84 - h).toFixed(1)}" width="3" height="4" fill="#f3d27a"/>`;
+        const x = 6 + i * 18 + r(i) * 6, h = 24 + r(i + 5) * 32, w = 11 + r(i + 9) * 5;
+        if (i === pal) { // the palace: a wide hall under a dome of the gem's colour
+          const pw = w + 8, px = x - 4, ph = Math.min(h, 30);
+          s += `<rect x="${n1(px)}" y="${n1(78 - ph)}" width="${n1(pw)}" height="${n1(ph)}" fill="#5d596c"/>
+            <path d="M${n1(px + 1)} ${n1(78 - ph)} a${n1(pw / 2 - 1)} ${n1(pw / 2 - 1)} 0 0 1 ${n1(pw - 2)} 0z" fill="${f}" stroke="${d}" stroke-width="1"/>
+            <path d="M${n1(px + pw * 0.3)} ${n1(78 - ph - pw * 0.28)} q${n1(pw * 0.1)} -3 ${n1(pw * 0.25)} -3" stroke="${l}" stroke-width="1.4" fill="none"/>
+            <rect x="${n1(px + pw / 2 - 0.6)}" y="${n1(78 - ph - pw / 2 - 5)}" width="1.2" height="6" fill="${d}"/>
+            <path d="M${n1(px + pw / 2 - 4)} 78 v-7 a4 4 0 0 1 8 0 v7z" fill="#ffd27a" opacity=".85"/>`;
+          continue;
+        }
+        const yy = 78 - h;
+        s += `<rect x="${n1(x)}" y="${n1(yy)}" width="${n1(w)}" height="${n1(h)}" fill="${i % 2 ? '#4a4757' : '#5d596c'}"/>
+          <rect x="${n1(x + w - 3)}" y="${n1(yy)}" width="3" height="${n1(h)}" fill="#000" opacity=".18"/>
+          <path d="M${n1(x - 1)} ${n1(yy)} l${n1(w / 2 + 1)} -9 l${n1(w / 2 + 1)} 9z" fill="${d}"/>`;
+        for (let j = 0; j < 3; j++) if (r(70 + i * 3 + j) > 0.35 && 6 + j * 9 < h - 6) s += `<rect x="${n1(x + 2.5 + (j % 2) * (w - 8))}" y="${n1(yy + 6 + j * 9)}" width="3" height="4" fill="#f3d27a" opacity="${n1(0.6 + r(80 + j) * 0.4)}"/>`;
       }
+      s += `<path d="M0 78 H100 V100 H0Z" fill="#2b2a33"/><path d="M0 78 h100" stroke="#5a5866" stroke-width="1.2"/>`;
+      for (let i = 0; i < 12; i++) s += `<rect x="${i * 9}" y="75.5" width="5" height="3" fill="#2b2a33"/>`;
     }
-    s += `<g transform="translate(${60 + r(20) * 8} ${4 + r(21) * 6}) scale(.3)" opacity=".95">${gemShape(k)}</g>`;
+    s += `<rect width="100" height="100" fill="url(#${id}l)"/><rect width="100" height="100" fill="url(#${id}v)"/>
+      <g transform="translate(${n1(60 + r(20) * 8)} ${n1(4 + r(21) * 6)}) scale(.3)" opacity=".95">${gemShape(k)}</g>`;
     return s;
   }
 
@@ -147,13 +192,32 @@
       y += 30.5;
     }
     const hue = ['#7a4a8a', '#3d6a8a', '#8a5a3a', '#4a7a5a', '#8a3d4f'][nid % 5];
+    const hair = ['#3a2616', '#6b4a2a', '#c9b48a', '#2a2222', '#8a5a2a'][(nid * 3) % 5];
+    const pid = 'nb' + (uid++);
+    // the jewel at the neck: the colour this noble wants most
+    let top = 0; for (let k = 1; k < 5; k++) if (n.req[k] > n.req[top]) top = k;
     return `<svg class="${cls || 'noble'}" viewBox="0 0 100 100" aria-label="Noble, 3 points">
+      <defs><pattern id="${pid}" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M5 0 L10 5 L5 10 L0 5Z" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1"/></pattern>
+        <linearGradient id="${pid}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient></defs>
       <rect x="1" y="1" width="98" height="98" rx="8" fill="#efe3c4" stroke="#b49a5c" stroke-width="2.5"/>
-      <rect x="34" y="6" width="60" height="88" rx="5" fill="${hue}" opacity=".85"/>
-      <circle cx="64" cy="46" r="13" fill="#f2d4b0"/>
-      <path d="M50 34 l4 -10 l5 7 l5 -9 l5 9 l5 -7 l4 10 z" fill="#f0c040" stroke="#8a6406" stroke-width="1.2"/>
-      <path d="M42 94 q0 -26 22 -30 q22 4 22 30 z" fill="#f3ead6" opacity=".9"/>
-      <text x="88" y="24" text-anchor="end" font-size="22" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="2.2" paint-order="stroke">3</text>
+      <rect x="34" y="6" width="60" height="88" rx="5" fill="${hue}"/>
+      <rect x="34" y="6" width="60" height="88" rx="5" fill="url(#${pid})"/>
+      <rect x="34" y="6" width="60" height="88" rx="5" fill="url(#${pid}g)"/>
+      <rect x="36.5" y="8.5" width="55" height="83" rx="4" fill="none" stroke="#e8c76a" stroke-opacity=".55" stroke-width="1.2"/>
+      <path d="M40 94 q0 -26 24 -31 q24 5 24 31 z" fill="${hue}" stroke="#2a1a22" stroke-opacity=".35" stroke-width="1"/>
+      <path d="M40 94 q0 -26 24 -31 q24 5 24 31 z" fill="#000" opacity=".22"/>
+      <path d="M52 66 q12 10 24 0 l-3 -4 q-9 6 -18 0z" fill="#f3ead6"/>
+      <path d="M56 70 q8 6 16 0" fill="none" stroke="#f0c040" stroke-width="1.4"/>
+      <g transform="translate(59.5 69) scale(.11)">${gemShape(top)}</g>
+      <rect x="60" y="54" width="8" height="8" fill="#e6c4a0"/>
+      <ellipse cx="64" cy="45" rx="11.5" ry="13" fill="#f2d4b0"/>
+      <path d="M52.5 44 q0 -14 11.5 -14 q11.5 0 11.5 14 q-3 -7 -11.5 -7 q-8.5 0 -11.5 7z" fill="${hair}"/>
+      <ellipse cx="69" cy="48" rx="5" ry="6" fill="#000" opacity=".08"/>
+      <circle cx="60" cy="45" r="1.1" fill="#3a2a22"/><circle cx="68" cy="45" r="1.1" fill="#3a2a22"/>
+      <path d="M61 51 q3 2 6 0" stroke="#a0604a" stroke-width="1" fill="none"/>
+      <path d="M51 32 l4 -10 l5 7 l4 -9 l4 9 l5 -7 l4 10 z" fill="#f0c040" stroke="#8a6406" stroke-width="1.2"/>
+      <circle cx="64" cy="22.5" r="1.8" fill="#de3f4a"/><circle cx="55.5" cy="25" r="1.2" fill="#3b7ddd"/><circle cx="72.5" cy="25" r="1.2" fill="#25a065"/>
+      <text x="90" y="24" text-anchor="end" font-size="22" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="2.2" paint-order="stroke">3</text>
       ${req}</svg>`;
   }
   // city tile (Cities variant): prestige needed + bonuses needed; grey squares = "any one colour" / "one other colour"

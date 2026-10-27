@@ -210,6 +210,44 @@
   .htok.ret { cursor: pointer; }
   .htok.retd .st:last-child { box-shadow: 0 0 0 2px var(--bad), 0 0 6px var(--bad); }
   .htok.retd::after { content: "−" attr(data-r); position: absolute; right: -6px; top: -6px; z-index: 2; background: var(--bad); color: #2a0b0b; font-size: 10px; font-weight: 900; border-radius: 6px; padding: 0 3px; line-height: 13px; }
+  /* an empty colour column shows where that colour's cards will lie: a faint card outline in the gem's colour */
+  .me .ccol.none::before, .me .nobcol:empty::before { content: ""; position: absolute; left: 50%; top: 2px; translate: -50% 0; width: min(100cqw, var(--cwmax)); aspect-ratio: 100 / 140;
+    border: 1.5px dashed var(--pc, rgba(255,255,255,.3)); border-radius: 4px; background: color-mix(in srgb, var(--pc, #fff) 9%, transparent); opacity: .75; }
+  .me .nobcol:empty { position: relative; container-type: size; }
+  .me .nobcol:empty::before { aspect-ratio: 1; border-radius: 5px; --pc: #e9d9a8; }
+  .hold:nth-child(1) { --pc: #e9edf5; } .hold:nth-child(2) { --pc: #5b9af0; } .hold:nth-child(3) { --pc: #3cc07e; } .hold:nth-child(4) { --pc: #ee5a64; } .hold:nth-child(5) { --pc: #8d8a9e; }
+  /* tall phones: the cards are as big as the width allows, so the spare height goes to your own cards and gems */
+  #game.grow .me { height: calc(100px + var(--mex)); }
+  #game.grow .me .ccol { height: calc(58px + var(--mex) * .85); --cwmax: calc(40px + var(--mex) * .45); }
+  #game.grow .me .htok { max-width: calc(28px + var(--mex) * .14); }
+  #game.grow .hand .slot { height: calc(58px + var(--mex) * .85); }
+  /* a key moment shown big over the table (a noble's visit, a city, the final round) */
+  .moment { position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%); z-index: 2147482000; pointer-events: none; display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px 14px 14px; border-radius: 16px; width: max-content; max-width: min(92vw, 420px); box-sizing: border-box; background: linear-gradient(160deg, #2c2116, #17110b); border: 1.5px solid #c99a3c;
+    box-shadow: 0 0 0 4px rgba(240,195,90,.18), 0 18px 50px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,225,160,.25); color: #f6efdc; }
+  .moment.warn { border-color: var(--accent-warm); padding-left: 20px; }
+  .moment.good { box-shadow: 0 0 0 4px rgba(110,231,168,.25), 0 0 40px rgba(240,195,90,.35), 0 18px 50px rgba(0,0,0,.65); }
+  .mo-pic { flex: none; width: 92px; height: 92px; }
+  .mo-pic svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  .mo-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .mo-txt b { font-size: 21px; line-height: 1.15; letter-spacing: -.01em; }
+  .moment.warn .mo-txt b { color: var(--accent-warm); font-size: 26px; text-transform: uppercase; letter-spacing: .04em; }
+  .mo-txt span { font-size: 14px; color: #d9cbb0; line-height: 1.3; }
+  /* laptop side panel: the race to the target */
+  .race-box { display: flex; flex-direction: column; gap: 8px; flex: none; }
+  .rrow { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border-radius: 8px; background: var(--bg-soft); border: 1px solid transparent; }
+  .rrow.turn { border-color: rgba(240,195,90,.55); }
+  .rtop { display: flex; align-items: center; gap: 7px; font-size: 13.5px; }
+  .rtop .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .rname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+  .rpts { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .rbar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .rbar i { display: block; height: 100%; border-radius: 3px; transition: width .5s ease; }
+  .rbon { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
+  .rb { min-width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .rb.k0 { background: #e9edf5; color: #222; } .rb.k1 { background: #3b7ddd; color: #fff; } .rb.k2 { background: #25a065; color: #fff; } .rb.k3 { background: #de3f4a; color: #fff; } .rb.k4 { background: #3b3a44; color: #fff; box-shadow: inset 0 0 0 1px #6d6b7c; }
+  .rb.z { opacity: .35; }
+  .rx { margin-left: 4px; white-space: nowrap; }
   .mine-info { display: flex; flex-direction: column; justify-content: center; align-items: center; min-width: 38px; font-size: 11px; color: #d9cbb0; line-height: 1.15; text-align: center; }
   .mine-info b { font-size: 20px; color: #fff; font-variant-numeric: tabular-nums; }
   .res { display: flex; gap: 4px; align-items: center; flex: none; }
@@ -549,7 +587,7 @@
 <script src="js/bots.js?v=2"></script>
 <script src="js/strength-data.js?v=2"></script>
 <script src="js/online-game.js?v=1"></script>
-<script src="js/art.js?v=3"></script>
+<script src="js/art.js?v=4"></script>
 <script src="js/fx.js?v=3"></script>
 <script src="js/table.js?v=1"></script>
 <script src="js/sfx.js?v=1"></script>
@@ -559,7 +597,7 @@
 <script src="js/spcoach.js?v=1"></script>
 <script src="js/challenges.js?v=1"></script>
 <script src="js/challenge-pars.js?v=1"></script>
-<script src="js/pwa.js?v=10" data-version="10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/pwa.js?v=11" data-version="11"></script>
+<script src="js/app.js?v=11"></script>
 </body>
 </html>

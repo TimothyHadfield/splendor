@@ -766,8 +766,8 @@
     // action bar
     const acts = '<div class="acts' + (my ? ' go' : '') + '" id="acts">' + actionBar(v, seat, my) + '</div>';
 
-    // laptop side panel: the log (opponents now sit across the table)
-    const side = '<div id="g-side">' +
+    // laptop side panel: the race to the target, then the log (opponents now sit across the table)
+    const side = '<div id="g-side">' + raceHTML(v, seat) +
       '<div class="panel log-box" style="min-height:0;display:flex;flex-direction:column;gap:6px"><span class="label">Log</span><div class="scroll" id="logbox"><ul class="log">' + logHTML(v, seat) + '</ul></div></div></div>';
 
     vPlay.classList.add('tbl-surface', 'tbl-wood-dark', 'on-table');
@@ -802,7 +802,18 @@
       const room = g.clientWidth - side.offsetWidth - (bk ? bk.offsetWidth : 0) - (nb ? nb.offsetWidth : 0) - 7 * 14;
       w = (room - 4 * gap) / 5;
     }
-    m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h, w * 1.4))) + 'px');
+    const ch = Math.max(40, Math.floor(Math.min(h, w * 1.4)));
+    m.style.setProperty('--ch', ch + 'px');
+    // tall phone: the cards are as big as the width allows, so give the spare height to your own cards and gems
+    // (instead of an empty band of wood between the bank and your edge of the table)
+    if (g && !(side && side.offsetWidth) && innerHeight > innerWidth) {
+      const was = g.classList.contains('grow') ? parseFloat(g.style.getPropertyValue('--mex')) || 0 : 0;
+      const spare = (m.clientHeight - 3 * ch - 2 * gap) + was;
+      const mex = Math.max(0, Math.min(70, Math.floor(spare - 6)));
+      if (mex >= 8) { g.classList.add('grow'); g.style.setProperty('--mex', mex + 'px'); }
+      else { g.classList.remove('grow'); g.style.removeProperty('--mex'); }
+      if (mex !== was) { const h2 = (m.clientHeight - 2 * gap) / 3; m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h2, w * 1.4))) + 'px'); }
+    } else if (g) { g.classList.remove('grow'); g.style.removeProperty('--mex'); }
   }
   window.addEventListener('resize', fitMarket);
   // ---- table pieces (real-looking cards, chips and stacks; original art)
@@ -848,6 +859,23 @@
       (nob ? '<span class="onob" title="' + nob + (v.mode === 'cities' ? ' city' : ' noble') + '">' + nob + '</span>' : '') + '<b class="pts">' + p.points + '</b></div>' +
       '<div class="otab"><div class="ocols">' + cols + '</div><div class="ogems">' + gems + '</div>' +
       '<span class="gtot" title="gems held"><i></i>' + sum(p.gems) + '</span>' + (handCards ? '<div class="hand-lp" id="ohl-' + i + '">' + handCards + '</div>' : '') + '</div></div>';
+  }
+  // everyone's points toward the target, with what they hold: fills the laptop side panel from the first turn
+  function raceHTML(v, seat) {
+    const goal = E.targetOf(v);
+    const order = v.players.map((p, i) => i);
+    const rows = order.map(i => {
+      const p = v.players[i];
+      const bonus = [0, 1, 2, 3, 4].map(k => p.cards.filter(c => CARDS[c].bonus === k).length);
+      const nob = p.nobles.length + (p.cities || []).length;
+      return '<div class="rrow' + (i === v.turn && !v.over ? ' turn' : '') + '"><div class="rtop"><span class="dot" style="background:' + SEAT_COL[i] + '"></span><span class="rname">' + esc(i === seat ? 'You' : p.name) + '</span>' +
+        '<b class="rpts">' + p.points + '</b></div>' +
+        '<div class="rbar"><i style="width:' + Math.min(100, Math.round(100 * p.points / goal)) + '%;background:' + SEAT_COL[i] + '"></i></div>' +
+        '<div class="rbon">' + bonus.map((n, k) => '<span class="rb k' + k + (n ? '' : ' z') + '" title="' + n + ' ' + COLW[k] + ' card' + (n === 1 ? '' : 's') + '">' + n + '</span>').join('') +
+        '<span class="rx" title="gems held">' + sum(p.gems) + ' gems</span>' + (p.reserved.length ? '<span class="rx">' + p.reserved.length + ' held</span>' : '') +
+        (nob ? '<span class="rx">' + nob + (v.mode === 'cities' ? ' city' : nob === 1 ? ' noble' : ' nobles') + '</span>' : '') + '</div></div>';
+    }).join('');
+    return '<div class="panel race-box"><span class="label">Race to ' + goal + (v.finalRound && !v.over ? ' · final round' : '') + '</span>' + rows + '</div>';
   }
   function logHTML(v, seat) {
     return v.log.slice(-30).map(l => '<li class="' + (l.seat === seat ? 'mine' : '') + '">' + esc(l.text) + '</li>').join('');
@@ -1029,6 +1057,22 @@
     return table.g.kinds.map((k, i) => (k === 'human' ? i : -1)).filter(i => i >= 0);
   }
   const targetEl = (who, seat) => (who === seat ? $('#me-box') : $('#chip-' + who));
+  // a key moment (a noble's visit, a city, the final round) shown big over the table for a moment; off with animations
+  function moment(art, title, sub, tone) {
+    if (!anim() || ui.tab !== 'play') return;
+    const old = document.querySelector('.moment'); if (old) old.remove();
+    const d = document.createElement('div');
+    d.className = 'moment' + (tone ? ' ' + tone : '');
+    d.setAttribute('aria-live', 'polite');
+    d.innerHTML = (art ? '<div class="mo-pic">' + art + '</div>' : '') + '<div class="mo-txt"><b>' + title + '</b><span>' + sub + '</span></div>';
+    document.body.appendChild(d);
+    const ms = 1900 * spd();
+    const a = d.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(.6)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1.06)', offset: 0.12 },
+      { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.2 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: 0.82 },
+      { opacity: 0, transform: 'translate(-50%,-50%) scale(.96)' }], { duration: ms, easing: 'ease-out', fill: 'forwards' });
+    a.onfinish = () => d.remove();
+    setTimeout(() => d.remove(), ms + 300);
+  }
   const scoreEls = (who, seat) => [who === seat ? $('#my-pts') : null, $('#chip-' + who + ' .pts')].filter(Boolean);
   function sfx(prev, v, seat, myPrev, myNow, visuals) {
     let list;
@@ -1045,8 +1089,17 @@
         if (e.fx === 'score') {
           scoreEls(e.who, seat).forEach(el => FX.countUp(el, e.from, e.to, { duration: 500 }));
           const t = targetEl(e.who, seat); if (t) FX.floatText(t, '+' + (e.to - e.from), 'var(--accent-warm)');
-        } else if (e.fx === 'big') { const t = targetEl(e.who, seat); if (t) FX.pop(t); }
-        else if (e.fx === 'final') { const r = $('.nobles .rnd'); if (r) FX.pulse(r); }
+        } else if (e.fx === 'big') {
+          const t = targetEl(e.who, seat); if (t) FX.pop(t);
+          const p = v.players[e.who], mine = meSeats(seat).indexOf(e.who) >= 0;
+          const art = e.what === 'city' ? Art.city(p.cities[p.cities.length - 1], 'mo-art') : Art.noble(p.nobles[p.nobles.length - 1], 'mo-art');
+          moment(art, e.what === 'city' ? (mine ? 'You take a city' : esc(p.name) + ' takes a city') : (mine ? 'A noble visits you' : 'A noble visits ' + esc(p.name)),
+            e.what === 'city' ? 'Only a player with a city can win' : '+3 points', mine ? 'good' : '');
+        } else if (e.fx === 'final') {
+          const r = $('.nobles .rnd'); if (r) FX.pulse(r);
+          const lead = v.players.reduce((b, p, i) => (p.points > v.players[b].points ? i : b), 0);
+          moment('', 'Final round', (v.mode === 'cities' ? 'A city is taken.' : (meSeats(seat).indexOf(lead) >= 0 ? 'You have ' : esc(v.players[lead].name) + ' has ') + v.players[lead].points + ' points.') + ' Play ends with this round.', 'warn');
+        }
         else if (e.fx === 'turn') { const m = $('#me-box'); if (m) FX.flash(m, 'rgba(110,168,254,.5)'); }
       },
     });
