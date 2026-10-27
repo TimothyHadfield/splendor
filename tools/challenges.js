@@ -1,7 +1,8 @@
 // Check every challenge with our Hard computer in your seat and set its star marks; writes js/challenge-pars.js.
 // node tools/challenges.js [runs]   (about 1 minute for 80 runs)
 // Each challenge must be met by Hard in at least 20% of runs (else it fails and says so).
-// 2 stars = your turns <= Hard's 80th percentile when it meets the goal; 3 stars = <= Hard's median.
+// 2 stars = your turns <= Hard's 80th percentile when it meets the goal; 3 stars = <= Hard's best quarter,
+// and always at least 2 turns below the 2-star mark so each star is its own step.
 const fs = require('fs');
 const path = require('path');
 const E = require('../js/engine.js');
@@ -37,7 +38,7 @@ for (const c of C.LIST) {
   const rate = ok.length / RUNS;
   if (rate < 0.2) bad++;
   const q = f => ok[Math.min(ok.length - 1, Math.floor(f * ok.length))];
-  pars[c.id] = ok.length ? [q(0.8), q(0.5)] : [0, 0];
+  pars[c.id] = ok.length ? [q(0.8), Math.min(q(0.25), q(0.8) - 2)] : [0, 0];
   report.push(c.id.padEnd(4) + ' ' + C.goalText(c).padEnd(44) + ' ' + C.oppText(c).padEnd(12) + ' Hard meets it ' + Math.round(rate * 100) + '%  stars at ' + pars[c.id].join(' / ') + ' turns' + (rate < 0.2 ? '   <-- TOO HARD' : ''));
 }
 console.log(report.join('\n'));

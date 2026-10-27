@@ -2,7 +2,7 @@
    Every deal is fixed (same cards, same nobles, you go first); the computers still think for themselves.
    Stars: 1 = goal met; 2 and 3 = met within the number of your turns shown. The turn marks come from our Hard
    computer playing your seat 80 times on each deal (tools/challenges.js writes js/challenge-pars.js):
-   2 stars = within Hard's slower fifth (its 80th percentile), 3 stars = as fast as Hard's median game. No Undo in a challenge, and a Hint caps it at 1 star.
+   2 stars = within Hard's 80th percentile, 3 stars = as fast as Hard's best quarter (at least 2 turns quicker). No Undo in a challenge, and a Hint caps it at 1 star.
    Plain script: window.SpChallenges in the browser, module.exports in node. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();

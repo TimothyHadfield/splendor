@@ -936,6 +936,9 @@
         '<button class="btn primary" data-reserve id="do-reserve"' + (me.reserved.length < 3 ? '' : ' disabled') + '>Reserve</button>';
     }
     if (ui.hint) return '<div class="say"><b>Hint: ' + esc(describe(ui.hint)) + '</b><br>' + esc(ui.hintWhy || '') + '</div>' + hintBtn;
+    // after the opening, the line says what the player before you just did (on phones the log is a tap away)
+    const prevMove = v.turns >= v.n * 2 ? v.log.slice().reverse().find(l => l.seat !== seat && l.t >= v.turns - v.n) : null;
+    if (prevMove) return '<div class="say"><b>Your turn.</b> ' + esc(prevMove.text) + '.</div>' + hintBtn;
     return '<div class="say"><b>Your turn.</b> Tap gems to take, or a card to buy or reserve.</div>' + hintBtn;
   }
 
@@ -1269,13 +1272,18 @@
       if (g.daily) bits.push('Daily deal done');
       if (bits.length) extra += '<p class="muted small" style="margin:2px 0 0">' + esc(bits.join(' · ')) + '</p>';
     }
-    const again = g && g.challenge ? '<button class="btn" data-chal-again>Try again</button>' : '';
+    const again = g && g.challenge ? '<button class="btn" data-chal-again>Try again</button>' :
+      g && !g.daily && !g.tutorial ? '<button class="btn" data-again>Play again</button>' : '';
     sheet(v.result.winners.length > 1 ? 'Shared win' : (v.result.winners[0] === seat ? 'You win!' : v.players[v.result.winners[0]].name + ' wins'),
       '<div class="end-card">' + rows + extra + (matched !== null ? '<p class="muted small" style="margin:4px 0 0">You matched the Hard computer on ' + matched + '% of your moves.</p>' : '') +
       '<div class="row end-btns">' + again + '<button class="btn primary grow" data-go-study>Study this game</button></div></div>');
     $('#sheet').addEventListener('click', e => {
       if (e.target.closest('[data-go-study]')) { closeSheet(); showTab('study', true); }
       if (e.target.closest('[data-chal-again]')) { const id = g.challenge; closeSheet(); dropOverlay(); endLocalGame(); startChallenge(id); }
+      if (e.target.closest('[data-again]')) { // the same table again: same seats, levels, styles and rules, a new deal
+        const o = { kinds: g.kinds.slice(), level: g.level, levels: g.levels, styles: g.styles, target: E.targetOf(g.state), cities: g.state.mode === 'cities' };
+        closeSheet(); dropOverlay(); endLocalGame(); startGame(o);
+      }
     });
   }
 

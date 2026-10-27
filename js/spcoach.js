@@ -40,6 +40,7 @@
         '<ul><li><b>Turn badges</b> on each card: how many turns of gems it is from you. ✓ = you can buy it now.</li>' +
         '<li><b>Hint</b>: what the Hard computer would do, and why.</li>' +
         '<li><b>Undo</b> (vs computers): takes back your last move. A game with Hint or Undo counts as "with help" in My stats.</li>' +
+        '<li><b>Points to win</b> (Settings): 10, 15, 18 or 21. 15 is the standard game; the computers play to whatever is set.</li>' +
         '<li><b>Daily</b>: the same deal for everyone today, against Hard. <b>Challenges</b>: set deals with a goal and up to 3 stars.</li>' +
         '<li><b>Study</b>: after a game, each of your moves next to Hard\'s, and the points race.</li></ul>' },
     ],
@@ -61,7 +62,7 @@
       { title: 'Your cards and gems', target: '#me-box', text: 'Your cards lie here by colour, with your gems below them. 10 gems at most.', when: () => cards() >= 1 },
       { title: 'Nobles', target: '.nobles', text: 'Nobles want bonuses (cards), not gems. Match one and it visits you at the end of your turn: 3 points, free.', when: myTurn },
       { title: 'Reserving', target: '.market .deck', text: 'Stuck? Tap any card (or a deck) and Reserve it: it is yours to buy later, and you get a gold that counts as any colour.', when: myTurn },
-      { title: 'You\'re set', target: '#acts', text: 'Hint shows what the Hard computer would do. Play on to 15 points; the Rules are in Settings any time.', when: myTurn, next: true },
+      { title: 'You\'re set', target: '#acts', text: 'Hint shows what the Hard computer would do. Play on to 15 points; Rules are on the Play screen and in Settings.', when: myTurn, next: true },
     ];
   }
 

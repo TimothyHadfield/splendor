@@ -61,8 +61,9 @@
       <g transform="translate(19 17) scale(.62)">${gemShape(k)}</g></svg>`;
   }
 
-  // card illustration: an original scene tinted by the bonus colour. Level 1: a gem mine at dusk with a loaded cart;
-  // level 2: a merchant ship under the moon; level 3: a city at night with a domed palace in the gem's colour.
+  // card illustration: an original scene tinted by the bonus colour, two scenes per level so a row isn't all alike.
+  // Level 1: a gem mine at dusk with a loaded cart, or a crystal outcrop in the hills; level 2: a merchant ship under the
+  // moon, or a lighthouse over the harbour; level 3: a city at night with a domed palace, or a great hall with a rose window.
   // Every scene gets a soft light from the gem's corner and a vignette, so the cards read as lit, not flat.
   function scene(card) {
     const k = card.bonus, [f, l, d] = PAL[k];
@@ -70,7 +71,12 @@
     const r = i => ((Math.sin(seed + i * 12.9898) * 43758.5453) % 1 + 1) % 1;
     const n1 = v => v.toFixed(1);
     const id = 'g' + (uid++);
-    const sky = card.level === 1 ? ['#2c3654', '#6a6a8a', '#b8806a'] : card.level === 2 ? ['#3a2e52', '#7a5a78', '#c08a7a'] : ['#141f3a', '#28406e', '#3c5a8a'];
+    const SKIES = [
+      [['#2c3654', '#6a6a8a', '#b8806a'], ['#24304a', '#4f6a8a', '#8aa0b0'], ['#3a3050', '#8a6a7a', '#d0906a']],
+      [['#3a2e52', '#7a5a78', '#c08a7a'], ['#1e2c48', '#3e5a80', '#7a98b0'], ['#2a2440', '#5a4a70', '#a07a8a']],
+      [['#141f3a', '#28406e', '#3c5a8a'], ['#1a1630', '#3a2e5a', '#5a4a7a'], ['#10202e', '#24485a', '#3a6a74']]];
+    const sky = SKIES[card.level - 1][Math.floor(r(90) * 3)];
+    const alt = r(91) < 0.45;
     const glow = k === 4 ? '#b9b4d6' : l;
     let s = `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky[0]}"/><stop offset=".7" stop-color="${sky[1]}"/><stop offset="1" stop-color="${sky[2]}"/></linearGradient>
         <radialGradient id="${id}l" cx=".78" cy=".12" r=".75"><stop offset="0" stop-color="${glow}" stop-opacity=".45"/><stop offset="1" stop-color="${glow}" stop-opacity="0"/></radialGradient>
@@ -80,7 +86,49 @@
     // stars in the upper sky (fewer at dusk)
     const nst = card.level === 3 ? 9 : card.level === 2 ? 5 : 3;
     for (let i = 0; i < nst; i++) s += `<circle cx="${n1(4 + r(30 + i) * 52)}" cy="${n1(3 + r(40 + i) * 30)}" r="${n1(0.5 + r(50 + i) * 0.7)}" fill="#fff" opacity="${n1(0.45 + r(60 + i) * 0.5)}"/>`;
-    if (card.level === 1) { // a gem mine in the hills: far ridge, near hill, the mine mouth with lantern light, rails and a loaded cart
+    if (card.level === 1 && alt) { // a crystal outcrop: big crystals of the gem's colour breaking out of the rock, a pick left by it
+      const cx = 34 + r(3) * 30;
+      s += `<path d="M0 62 L18 ${n1(50 + r(8) * 6)} L36 58 L58 ${n1(46 + r(9) * 6)} L78 60 L100 ${n1(52 + r(10) * 6)} V100 H0Z" fill="#4a4f62" opacity=".8"/>
+        <path d="M0 80 Q20 66 46 74 Q70 64 100 72 V100 H0Z" fill="#3a3f36"/>
+        <circle cx="${n1(cx)}" cy="70" r="20" fill="${glow}" opacity=".18"/>`;
+      const cr = [[-9, 13, -14], [0, 22, 0], [9, 15, 12], [-16, 8, -26], [16, 9, 24]];
+      cr.forEach(([dx, h, rot], i) => {
+        const x = cx + dx, w = i === 1 ? 7 : 5;
+        s += `<g transform="rotate(${rot} ${n1(x)} 78)"><path d="M${n1(x - w / 2)} 78 V${n1(78 - h)} L${n1(x)} ${n1(78 - h - w * 0.9)} L${n1(x + w / 2)} ${n1(78 - h)} V78Z" fill="${f}" stroke="${d}" stroke-width=".8"/>
+          <path d="M${n1(x - w / 2)} ${n1(78 - h)} L${n1(x)} ${n1(78 - h - w * 0.9)} V78 H${n1(x - w / 2)}Z" fill="${l}" opacity=".55"/></g>`;
+      });
+      s += `<path d="M0 86 Q30 76 60 84 T100 82 V100 H0Z" fill="#2a2e27"/>
+        <path d="M${n1(cx + 20)} 90 l10 -12" stroke="#6b5233" stroke-width="1.6"/><path d="M${n1(cx + 26)} 76 q4 1 7 5 M${n1(cx + 26)} 76 q-1 4 -5 6" stroke="#8a8a96" stroke-width="1.6" fill="none"/>`;
+    } else if (card.level === 2 && alt) { // a lighthouse on the cliff, its beam over the harbour, a ship coming in
+      const sx = 30 + r(1) * 18;
+      // the cliff and lighthouse stand on the right (the left edge is under the card's cost dots)
+      s += `<path d="M0 66 H100 V100 H0Z" fill="#284057"/>
+        <path d="M0 66 Q25 62 50 66 T100 66" stroke="#5f86a8" stroke-width="1.5" fill="none"/>
+        <g transform="translate(100 16) scale(-1 1)"><path d="M14 30 L100 18 L100 34 Z" fill="#f6e7b0" opacity=".16"/>
+        <path d="M0 50 Q8 44 18 48 L30 60 Q34 66 36 100 H0Z" fill="#3a3a44"/>
+        <rect x="9" y="26" width="9" height="22" fill="#e8dcc0"/><rect x="9" y="33" width="9" height="4" fill="${f}"/><rect x="9" y="41" width="9" height="3" fill="${f}"/>
+        <rect x="8" y="22" width="11" height="5" fill="#2a2a33"/><circle cx="13.5" cy="24.5" r="2.6" fill="#ffd27a"/><circle cx="13.5" cy="24.5" r="7" fill="url(#${id}w)" opacity=".7"/>
+        <path d="M7 22 L13.5 17 L20 22Z" fill="${d}"/></g>
+        <path d="M6 80 q6 -2 12 0 M50 88 q7 -2 14 0 M74 94 q5 -2 10 0" stroke="#5f86a8" stroke-width="1" fill="none" opacity=".7"/>
+        <path d="M${n1(sx)} 70 h18 l-3 5 h-12z" fill="#5a3b22"/><path d="M${n1(sx + 9)} 69 V54 L${n1(sx + 18)} 68Z" fill="#efe4c8"/>
+        <path d="M${n1(sx + 8)} 68 V58 L${n1(sx + 2)} 68Z" fill="#d9ccae"/><path d="M${n1(sx + 9)} 54 l5 1.5 l-5 1.5z" fill="${f}"/>
+        <path d="M${n1(sx - 2)} 77 h22" stroke="#7aa0c0" stroke-width=".8" opacity=".6"/>`;
+    } else if (card.level === 3 && alt) { // a great hall at night: two towers, steps, a rose window of the gem's colour lit from inside
+      const hx = 22 + r(3) * 8;
+      s += `<path d="M84 12 a7 7 0 1 0 5 10 a5.6 5.6 0 1 1 -5 -10z" fill="#f3e3b0" opacity=".8"/>
+        <rect x="${n1(hx)}" y="40" width="56" height="38" fill="#5d596c"/>
+        <rect x="${n1(hx - 8)}" y="26" width="12" height="52" fill="#4a4757"/><rect x="${n1(hx + 52)}" y="26" width="12" height="52" fill="#4a4757"/>
+        <path d="M${n1(hx - 9)} 26 l7 -12 l7 12z M${n1(hx + 51)} 26 l7 -12 l7 12z" fill="${d}"/>
+        <path d="M${n1(hx)} 40 L${n1(hx + 28)} 24 L${n1(hx + 56)} 40Z" fill="#4a4757"/>
+        <circle cx="${n1(hx + 28)}" cy="51" r="10" fill="${f}" stroke="#2a2833" stroke-width="2"/>
+        <circle cx="${n1(hx + 28)}" cy="51" r="10" fill="url(#${id}w)" opacity=".45"/>
+        <path d="M${n1(hx + 18)} 51 h20 M${n1(hx + 28)} 41 v20 M${n1(hx + 21)} 44 l14 14 M${n1(hx + 35)} 44 l-14 14" stroke="#2a2833" stroke-width="1"/>
+        <circle cx="${n1(hx + 28)}" cy="51" r="3" fill="${l}"/>
+        <path d="M${n1(hx + 22)} 78 v-9 a6 6 0 0 1 12 0 v9z" fill="#ffd27a" opacity=".85"/>
+        <rect x="${n1(hx - 5)}" y="36" width="3" height="5" fill="#f3d27a"/><rect x="${n1(hx + 57)}" y="36" width="3" height="5" fill="#f3d27a"/>
+        <rect x="${n1(hx + 6)}" y="60" width="4" height="7" fill="#f3d27a" opacity=".8"/><rect x="${n1(hx + 46)}" y="60" width="4" height="7" fill="#f3d27a" opacity=".8"/>
+        <path d="M0 78 H100 V100 H0Z" fill="#2b2a33"/><path d="M${n1(hx + 14)} 78 h28 l4 4 h-36z M${n1(hx + 8)} 82 h40 l4 4 h-48z" fill="#4a4757"/>`;
+    } else if (card.level === 1) { // a gem mine in the hills: far ridge, near hill, the mine mouth with lantern light, rails and a loaded cart
       const mx = 30 + r(3) * 30;
       s += `<path d="M0 60 L14 ${n1(46 + r(8) * 6)} L28 56 L44 ${n1(42 + r(9) * 8)} L62 58 L80 ${n1(44 + r(10) * 6)} L100 54 V100 H0Z" fill="#4a4f62" opacity=".8"/>
         <path d="M0 70 Q25 ${n1(48 + r(1) * 12)} 50 62 T100 ${n1(56 + r(2) * 10)} V100 H0Z" fill="#3f4a3c"/>
