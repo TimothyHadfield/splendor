@@ -9,9 +9,9 @@ const { mulberry } = require('../tools/measure.js');
 let pass = 0, fail = 0;
 function t(label, fn) { try { fn(); pass++; console.log('  PASS  ' + label); } catch (e) { fail++; console.log('  FAIL  ' + label + ' :: ' + e.message.split('\n')[0]); } }
 
-function play(levels, seed, botSeed, style) {
+function play(levels, seed, botSeed, style, opts) {
   const rng = mulberry(seed);
-  let s = E.setup(levels.length, {}, rng, levels);
+  let s = E.setup(levels.length, opts || {}, rng, levels);
   const brng = botSeed == null ? rng : mulberry(botSeed);
   const use = levels.map(() => ({ reserves: 0, take2: 0, buys: 0 }));
   const moves = [];
@@ -24,12 +24,12 @@ function play(levels, seed, botSeed, style) {
   }
   return { s, use, moves };
 }
-function duel(a, b, n, seed0, styles) {
+function duel(a, b, n, seed0, styles, opts) {
   let wa = 0; const use = { [a]: { reserves: 0, take2: 0, games: 0 }, [b]: { reserves: 0, take2: 0, games: 0 } };
   for (let g = 0; g < n; g++) {
     const flip = g % 2 === 1, lv = flip ? [b, a] : [a, b];
     const st = styles ? (flip ? [styles[1], styles[0]] : styles) : null;
-    const r = play(lv, seed0 + g * 7919, null, st), iA = flip ? 1 : 0, w = r.s.result.winners;
+    const r = play(lv, seed0 + g * 7919, null, st, opts), iA = flip ? 1 : 0, w = r.s.result.winners;
     wa += w.length > 1 ? (w.includes(iA) ? 0.5 : 0) : (w[0] === iA ? 1 : 0);
     r.use.forEach((u, i) => { const x = use[lv[i]]; x.reserves += u.reserves; x.take2 += u.take2; x.games++; });
   }
@@ -61,6 +61,15 @@ t('hints stay the same every time (explain uses no random numbers)', () => {
   const a = JSON.stringify(B.explain(E.view(s, s.turn), s.turn).action);
   for (let i = 0; i < 5; i++) assert.equal(JSON.stringify(B.explain(E.view(s, s.turn), s.turn).action), a);
 });
+// Cities of Splendor modules (Trading posts, Strongholds): the ladder holds there too
+for (const mod of ['posts', 'forts']) {
+  const M = 200;
+  const a = duel('hard', 'medium', M, 12024, null, { module: mod }).pct, b = duel('hard', 'easy', M, 13024, null, { module: mod }).pct, c = duel('medium', 'easy', M, 14024, null, { module: mod }).pct;
+  console.log('  ' + mod + ': hard>medium ' + a.toFixed(1) + '%  hard>easy ' + b.toFixed(1) + '%  medium>easy ' + c.toFixed(1) + '%');
+  t('ladder with the ' + mod + ' module: Hard > Medium (60%+) > Easy (70%+), Hard > Easy (85%+)', () => {
+    assert.ok(a >= 60, 'hard>medium ' + a); assert.ok(b >= 85, 'hard>easy ' + b); assert.ok(c >= 70, 'medium>easy ' + c);
+  });
+}
 if (B.STYLES) {
   t('styles: each Hard style holds its own against plain Hard (at least 42%) and beats Medium (at least 58%)', () => {
     for (const st of Object.keys(B.STYLES).filter(k => k !== 'balanced')) {

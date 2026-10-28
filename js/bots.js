@@ -7,7 +7,7 @@
   else root.SpBots = factory(root.SpCards, root.SpEngine);
 })(typeof self !== 'undefined' ? self : this, function (Cards, Engine) {
   'use strict';
-  const { CARDS, NOBLES, CITIES, WIN_POINTS, MAX_TOKENS } = Cards;
+  const { CARDS, NOBLES, CITIES, POSTS, WIN_POINTS, MAX_TOKENS } = Cards;
   const sum = a => a.reduce((s, x) => s + x, 0);
 
   // ------------------------------------------------------------ weights per level
@@ -28,6 +28,10 @@
     nobles: { name: 'Nobles', note: 'Builds bonuses toward the nobles', w: { noble: 1.3, bonus: 1.05 } },
     big: { name: 'Big cards', note: 'Saves up for the big level-3 cards', w: { den: 0.9, pow: 1.15 } },
     reserver: { name: 'Reserver', note: 'Reserves its targets for the gold', w: { reserve: 1, resLvl: 3, resVal: 3, resTok: 9 } },
+  };
+  // per-module adjustments (measured 2026-10-28 in node self-play; base and Cities games use none)
+  const MOD_W = {
+    posts: { medium: { post: 1, bonus: 0.5 }, hard: { post: 1.2, freeGem: 0.5 } },
   };
   const nudge = W => (W.rng && W.jit ? 1 + W.jit * (W.rng() - 0.5) : 1);
 
@@ -56,6 +60,17 @@
         for (let k = 0; k < 5; k++) if (r[k] > p.bonus[k]) w[k] += W.noble * 3 / missing;
       }
     }
+    // Trading posts: bonuses toward a power not held yet (Hard; weighted by what the power gives)
+    const PW = W.post !== undefined ? W.post : W.noble;
+    if (PW && v.mod === 'posts' && p.posts) {
+      for (const t of POSTS) {
+        if (p.posts.indexOf(t.id) >= 0) continue;
+        const missing = t.req.reduce((s, x, k) => s + Math.max(0, x - p.bonus[k]), 0);
+        if (missing === 0) continue;
+        const worth = POST_WORTH[t.id] + (t.id === 4 ? p.posts.length : 0);
+        for (let k = 0; k < 5; k++) if (t.req[k] > p.bonus[k]) w[k] += PW * worth / (missing + 1);
+      }
+    }
     if (W.noble && v.mode === 'cities') {
       for (const cid of v.cities) {
         const c = CITIES[cid];
@@ -70,6 +85,16 @@
     return w;
   }
 
+  // what a trading post power is worth to a planner, in rough points (powers 4 and 5 are real points)
+  const POST_WORTH = [2.2, 1.2, 1.2, 5, 2];
+  // points a purchase brings through trading posts (powers 4 and 5) once the coat of arms goes on at the end of the turn
+  function postGain(v, p, id) {
+    if (v.mod !== 'posts' || !p.posts) return 0;
+    const b = p.bonus.slice(); b[CARDS[id].bonus]++;
+    const met = Engine.postsMet({ bonus: b, nobles: p.nobles.concat(nobleGain(v, p, id) ? [0] : []), posts: p.posts });
+    if (!met.length) return 0;
+    return Engine.postPoints({ posts: p.posts.concat(met) }) - Engine.postPoints(p);
+  }
   // does buying card id give player p a city (Cities variant)?
   function cityAfter(v, p, id) {
     if (v.mode !== 'cities' || p.cities && p.cities.length) return false;
@@ -91,6 +116,7 @@
         if (after) { val += 3; break; }
       }
     }
+    if (v.mod === 'posts') val += postGain(v, p, id) + (Engine.hasPost(p, 0) ? (W.freeGem || 0) : 0); // power 1: a buy also brings a gem
     // late game: points are what count
     if (W.noble && cityAfter(v, p, id)) val += 6;
     const lead = Math.max.apply(null, v.players.map(q => q.points));
@@ -103,7 +129,7 @@
     const p = v.players[seat];
     const bw = bonusWorth(v, p, W);
     const cands = [];
-    v.market.forEach(row => row.forEach(id => { if (id !== null) cands.push({ id, reserved: false }); }));
+    v.market.forEach(row => row.forEach(id => { if (id !== null && !(v.forts && Engine.blocked(v, seat, id))) cands.push({ id, reserved: false }); }));
     p.reserved.forEach(r => { if (r.id !== null) cands.push({ id: r.id, reserved: true }); });
     for (const c of cands) {
       c.turns = Engine.turnsToAfford(p, c.id, v.bank);
@@ -120,7 +146,7 @@
     let best = null, bestS = -Infinity;
     for (const a of legalTakes) {
       const g = a.t === 'take2' ? [a.c, a.c] : a.g;
-      const q = { gems: p.gems.slice(), bonus: p.bonus };
+      const q = { gems: p.gems.slice(), bonus: p.bonus, posts: p.posts };
       g.forEach(k => q.gems[k]++);
       const bank = v.bank.slice(); g.forEach(k => bank[k]--);
       let s = 0;
@@ -173,6 +199,8 @@
     const legal = Engine.legal(v, seat);
     if (v.phase === 'discard') return randDiscard(v, seat, rng);
     if (v.phase === 'noble' || v.phase === 'city') return legal[0];
+    if (v.phase === 'gem' || v.phase === 'fort') return legal[Math.floor(rng() * legal.length)];
+    if (v.phase === 'conquer') return legal[0]; // a free extra card: even Easy takes it
     const buys = legal.filter(a => a.t === 'buy');
     if (buys.length && rng() < 0.85) {
       const top = Math.max.apply(null, buys.map(a => CARDS[a.id].points));
@@ -204,11 +232,18 @@
       }
       return { action: best, why: 'Take the noble an opponent is closest to.' };
     }
+    // module steps (Trading posts' free gem, Strongholds)
+    if (v.phase === 'gem') {
+      const a = bestTake(v, seat, legal.map(x => ({ t: 'take', g: [x.c] })), cands.filter(c => c.turns !== Infinity).slice(0, 3), bw, W);
+      return { action: { t: 'gem', c: a ? a.g[0] : legal[0].c }, why: 'The free gem your best target needs most.' };
+    }
+    if (v.phase === 'conquer') return { action: { t: 'conquer' }, why: 'Your 3 strongholds let you take this card as an extra.' };
+    if (v.phase === 'fort') return { action: fortChoice(v, seat, W, cands, legal), why: 'Hold the card you want most, or break a rival’s hold.' };
     const buys = legal.filter(a => a.t === 'buy');
     const takes = legal.filter(a => a.t === 'take' || a.t === 'take2');
     // 1. a purchase that wins the game outright (or reaches 15 with the most points)
     for (const a of buys) {
-      const after = p.points + CARDS[a.id].points + nobleGain(v, p, a.id);
+      const after = p.points + CARDS[a.id].points + nobleGain(v, p, a.id) + postGain(v, p, a.id);
       if (v.mode === 'cities') {
         if (cityAfter(v, p, a.id)) {
           const others = v.players.filter((q, i) => i !== seat).map(q => q.points);
@@ -244,7 +279,7 @@
     }
     // 4. reserve a strong target when gold would get it there quicker (Hard only)
     if (W.reserve && top && !top.reserved && p.reserved.length < 2 && v.bank[5] > 0 && CARDS[top.id].level >= (W.resLvl || 2) && top.turns >= 1) {
-      const q = { gems: p.gems.slice(), bonus: p.bonus }; q.gems[5]++;
+      const q = { gems: p.gems.slice(), bonus: p.bonus, posts: p.posts }; q.gems[5]++;
       const t2 = Engine.turnsToAfford(q, top.id, v.bank);
       if (t2 < top.turns && top.value >= (W.resVal || 3) && Engine.tokens(p) <= (W.resTok || 8)) return { action: { t: 'reserve', id: top.id }, why: 'Reserve your best target; the gold saves a turn.' };
     }
@@ -258,6 +293,26 @@
     const res = legal.find(a => a.t === 'reserve' && a.id !== undefined) || legal.find(a => a.t === 'reserve');
     if (res) return { action: res, why: 'Nothing else to do; reserve for the gold.' };
     return { action: legal[0], why: '' };
+  }
+
+  // Strongholds: place / move one of ours onto the card we want most (more on it = closer to taking it free),
+  // or remove a rival's from the card that is worth most to them (Hard and Medium; Medium seldom removes)
+  function fortChoice(v, seat, W, cands, legal) {
+    const val = id => { const c = cands.find(x => x.id === id); return c ? Math.max(0, c.score) : 0; };
+    const own = id => { const f = v.forts[id]; return f && f.seat === seat ? f.n : 0; };
+    const threat = id => {
+      const f = v.forts[id], q = v.players[f.seat], t = Engine.turnsToAfford(q, id, v.bank);
+      return (CARDS[id].points + 1) * (f.n >= 2 ? 1.6 : 0.6) * (t === 0 ? 1.5 : 1) * (f.n >= 3 && t === 0 ? 2 : 1);
+    };
+    let best = legal[0], bs = -Infinity;
+    for (const a of legal) {
+      let s;
+      if (a.rm !== undefined) s = W.block ? threat(a.rm) * 0.5 : 0.01;
+      else s = val(a.id) * (1 + 0.6 * own(a.id)) - (a.from !== undefined ? val(a.from) * (1 + 0.6 * (own(a.from) - 1)) + 0.05 : 0);
+      s *= nudge(W);
+      if (s > bs) { bs = s; best = a; }
+    }
+    return best;
   }
 
   function nobleGain(v, p, id) {
@@ -277,6 +332,7 @@
     let best = null, bs = 0;
     v.market.forEach(row => row.forEach(id => {
       if (id === null) return;
+      if (v.forts && (Engine.blocked(v, seat, id) || Engine.blocked(v, nxt, id))) return; // we can't reserve it / they can't buy it
       if (Engine.turnsToAfford(q, id, v.bank) !== 0) return;
       const gain = CARDS[id].points + nobleGain(v, q, id);
       if (v.mode === 'cities') { if (cityAfter(v, q, id) && gain + 1 > bs) { bs = gain + 1; best = id; } return; }
@@ -290,10 +346,11 @@
     rng = rng || Math.random;
     if (level === 'easy') return easy(v, seat, rng);
     const st = level === 'hard' && STYLES[style] ? STYLES[style].w : {};
-    const W = Object.assign({}, typeof level === 'object' ? level : (LEVELS[level] || LEVELS.hard), st, { rng });
+    const mw = v.mod && MOD_W[v.mod] && typeof level !== 'object' ? MOD_W[v.mod][LEVELS[level] ? level : 'hard'] : null;
+    const W = Object.assign({}, typeof level === 'object' ? level : (LEVELS[level] || LEVELS.hard), mw || {}, st, { rng });
     return smart(v, seat, W).action;
   }
-  function explain(v, seat) { return smart(v, seat, LEVELS.hard); }
+  function explain(v, seat) { return smart(v, seat, Object.assign({}, LEVELS.hard, (v.mod && MOD_W[v.mod] && MOD_W[v.mod].hard) || {})); }
 
   // score of the position for a seat (used for "points lost" in study): points + value of the plan ahead
   function evalFor(v, seat) {

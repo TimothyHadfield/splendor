@@ -123,8 +123,23 @@
     [7, 13, [2, 2, 2, 2, 2]], [7, 14, [2, 1, 1, 2, 2]],
   ];
   const CITIES = CITY_ROWS.map((r, id) => ({ id, tile: r[0], pts: r[1], req: r[2], same: r[3] || 0, other: r[4] || 0 }));
+  // Cities of Splendor, "Trading Posts" module: a route board with 5 powers. At the end of your turn (after a noble),
+  // you put a coat of arms on every power whose bonus requirement you meet (power 4 also needs a noble); you keep
+  // that power for the rest of the game. Cross-checked: rulebook text (ultraboardgames) + hexanome-01 Unlockables
+  // data + hexanome-04 power classes (all three agree on the requirements and effects).
+  //   gem   : after you buy a card, take 1 gem token        two  : taking 2 of a colour also gives 1 of another colour
+  //   gold2 : each gold pays for 2 gems of one colour       five : 5 prestige, once      arms : 1 prestige per coat of arms you have placed
+  const POSTS = [
+    { id: 0, power: 'gem', req: [1, 0, 0, 3, 0], noble: false },
+    { id: 1, power: 'two', req: [2, 0, 0, 0, 0], noble: false },
+    { id: 2, power: 'gold2', req: [0, 3, 0, 0, 1], noble: false },
+    { id: 3, power: 'five', req: [0, 0, 5, 0, 0], noble: true },
+    { id: 4, power: 'arms', req: [0, 0, 0, 0, 3], noble: false },
+  ];
+  // Cities of Splendor, "Strongholds" module: 3 strongholds per player
+  const FORTS = 3;
   // tokens of each gem colour by player count; gold is always 5
   const GEMS_BY_PLAYERS = { 2: 4, 3: 5, 4: 7 };
   const GOLD = 5;
-  return { COLORS, GEM, CARDS, NOBLES, CITIES, GEMS_BY_PLAYERS, GOLD, WIN_POINTS: 15, MAX_TOKENS: 10, MAX_RESERVED: 3 };
+  return { COLORS, GEM, CARDS, NOBLES, CITIES, POSTS, FORTS, GEMS_BY_PLAYERS, GOLD, WIN_POINTS: 15, MAX_TOKENS: 10, MAX_RESERVED: 3 };
 });

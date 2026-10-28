@@ -7,7 +7,8 @@
   else root.SpEngine = factory(root.SpCards);
 })(typeof self !== 'undefined' ? self : this, function (Cards) {
   'use strict';
-  const { CARDS, NOBLES, CITIES, GEMS_BY_PLAYERS, GOLD, WIN_POINTS, MAX_TOKENS, MAX_RESERVED } = Cards;
+  const { CARDS, NOBLES, CITIES, POSTS, FORTS, GEMS_BY_PLAYERS, GOLD, WIN_POINTS, MAX_TOKENS, MAX_RESERVED } = Cards;
+  const MODS = ['posts', 'forts']; // Cities of Splendor modules besides Cities: Trading posts, Strongholds (one at a time)
   const NAMES = ['white', 'blue', 'green', 'red', 'black', 'gold'];
   const TARGETS = [10, 15, 18, 21];
   const targetOf = s => (TARGETS.indexOf(s.target) >= 0 ? s.target : WIN_POINTS);
@@ -43,15 +44,27 @@
       players.push({ name: cleanName(names && names[i], i),
         gems: [0, 0, 0, 0, 0, 0], bonus: [0, 0, 0, 0, 0], cards: [], reserved: [], nobles: [], cities: [], points: 0 });
     }
-    return {
+    const s = {
       v: 1, n, mode: cities ? 'cities' : 'base', target, decks, market, bank: [g, g, g, g, g, GOLD], nobles, cities: cityIds, players,
       start, turn: start, phase: 'main', turns: 0, finalRound: false, over: false, result: null,
       nobleChoice: [], last: null, log: [],
     };
+    // the modules are played one at a time (rulebook), so Cities wins over them; base games carry no extra fields
+    const mod = !cities && MODS.indexOf(o.module) >= 0 ? o.module : null;
+    if (mod) {
+      s.mod = mod;
+      if (mod === 'posts') players.forEach(p => { p.posts = []; });
+      if (mod === 'forts') s.forts = {}; // card id -> { seat, n } (only face-up cards hold strongholds)
+    }
+    return s;
   }
 
   // ---------------------------------------------------------------- helpers
   function bonusOf(p) { return p.bonus; }
+  // Trading posts: does player p hold power i (a coat of arms on it)?
+  const hasPost = (p, i) => !!(p && p.posts && p.posts.indexOf(i) >= 0);
+  // gold needed to cover a shortfall of x gems of one colour (power 3: each gold counts as 2 gems of one colour)
+  const goldFor = (p, x) => (hasPost(p, 2) ? Math.ceil(x / 2) : x);
   // cheapest legal payment: coloured gems first, gold covers the rest. null if unaffordable.
   function autoPay(p, cardId) {
     const c = CARDS[cardId].cost;
@@ -60,7 +73,7 @@
     for (let k = 0; k < 5; k++) {
       const need = Math.max(0, c[k] - p.bonus[k]);
       const use = Math.min(need, p.gems[k]);
-      pay[k] = use; goldNeed += need - use;
+      pay[k] = use; goldNeed += goldFor(p, need - use);
     }
     if (goldNeed > p.gems[5]) return null;
     pay[5] = goldNeed;
@@ -74,10 +87,42 @@
     for (let k = 0; k < 5; k++) {
       const x = pay[k], need = Math.max(0, c[k] - p.bonus[k]);
       if (!(Number.isInteger(x) && x >= 0 && x <= p.gems[k] && x <= need)) return false;
-      gold -= need - x;
+      gold -= goldFor(p, need - x);
     }
     return gold === 0; // gold exactly covers the shortfall (no overpaying)
   }
+  // Trading posts: the powers player p meets now and doesn't hold yet
+  function postsMet(p) {
+    if (!p.posts) return [];
+    return POSTS.filter(t => !hasPost(p, t.id) && t.req.every((x, k) => p.bonus[k] >= x) && (!t.noble || p.nobles.length > 0)).map(t => t.id);
+  }
+  // points from posts: power 4 = 5, power 5 = 1 per coat of arms placed
+  const postPoints = p => (hasPost(p, 3) ? 5 : 0) + (hasPost(p, 4) ? p.posts.length : 0);
+  // Strongholds: a face-up card someone else holds can't be bought or reserved
+  const fortOf = (s, id) => (s.forts && id !== null && id !== undefined ? s.forts[id] || null : null);
+  const blocked = (s, seat, id) => { const f = fortOf(s, id); return !!(f && f.seat !== seat); };
+  const fortsLeft = (s, seat) => FORTS - Object.keys(s.forts || {}).reduce((a, id) => a + (s.forts[id].seat === seat ? s.forts[id].n : 0), 0);
+  // every stronghold action open to seat after a purchase: place one from the supply, move one, or remove another's
+  function fortMoves(s, seat) {
+    const out = [];
+    if (!s.forts) return out;
+    const face = [];
+    s.market.forEach(row => row.forEach(id => { if (id !== null) face.push(id); }));
+    const canTake = id => { const f = fortOf(s, id); return !f || (f.seat === seat && f.n < FORTS); };
+    const mine = face.filter(id => { const f = fortOf(s, id); return f && f.seat === seat; });
+    if (fortsLeft(s, seat) > 0) face.forEach(id => { if (canTake(id)) out.push({ t: 'fort', id }); });
+    mine.forEach(from => face.forEach(id => { if (id !== from && canTake(id)) out.push({ t: 'fort', id, from }); }));
+    face.forEach(id => { const f = fortOf(s, id); if (f && f.seat !== seat) out.push({ t: 'fort', rm: id }); });
+    return out;
+  }
+  // Strongholds: the face-up card all 3 of seat's strongholds sit on (it may be bought as a free extra), or null
+  function conquestCard(s, seat) {
+    if (!s.forts) return null;
+    for (const k of Object.keys(s.forts)) { const f = s.forts[k]; if (f.seat === seat && f.n >= FORTS) return Number(k); }
+    return null;
+  }
+  // Trading posts powers 1 and 2: the colours a free gem may be (not gold; power 2: not the colour just taken)
+  const gemChoices = (s, not) => [0, 1, 2, 3, 4].filter(k => s.bank[k] > 0 && k !== not);
   function marketPos(s, id) {
     for (let l = 0; l < 3; l++) { const i = s.market[l].indexOf(id); if (i >= 0) return [l, i]; }
     return null;
@@ -106,16 +151,19 @@
     if (s.phase === 'discard') { out.push({ t: 'discard' }); return out; } // any valid return set; see apply
     if (s.phase === 'noble') { s.nobleChoice.forEach(id => out.push({ t: 'noble', id })); return out; }
     if (s.phase === 'city') { s.nobleChoice.forEach(id => out.push({ t: 'city', id })); return out; }
+    if (s.phase === 'gem') { gemChoices(s, s.gemNot).forEach(c => out.push({ t: 'gem', c })); return out; }
+    if (s.phase === 'fort') return fortMoves(s, seat);
+    if (s.phase === 'conquer') { out.push({ t: 'conquer' }, { t: 'skip' }); return out; }
     const av = colorsAvail(s);
     if (av.length >= 3) {
       for (let a = 0; a < 5; a++) for (let b = a + 1; b < 5; b++) for (let c = b + 1; c < 5; c++)
         if (s.bank[a] && s.bank[b] && s.bank[c]) out.push({ t: 'take', g: [a, b, c] });
     } else if (av.length > 0) out.push({ t: 'take', g: av.slice() });
     for (let k = 0; k < 5; k++) if (s.bank[k] >= 4) out.push({ t: 'take2', c: k });
-    for (let l = 0; l < 3; l++) for (const id of s.market[l]) if (id !== null && autoPay(p, id)) out.push({ t: 'buy', id });
+    for (let l = 0; l < 3; l++) for (const id of s.market[l]) if (id !== null && !blocked(s, seat, id) && autoPay(p, id)) out.push({ t: 'buy', id });
     for (const r of p.reserved) if (autoPay(p, r.id)) out.push({ t: 'buy', id: r.id });
     if (p.reserved.length < MAX_RESERVED) {
-      for (let l = 0; l < 3; l++) for (const id of s.market[l]) if (id !== null) out.push({ t: 'reserve', id });
+      for (let l = 0; l < 3; l++) for (const id of s.market[l]) if (id !== null && !blocked(s, seat, id)) out.push({ t: 'reserve', id });
       for (let l = 0; l < 3; l++) if (s.decks ? s.decks[l].length : s.deckSizes[l]) out.push({ t: 'reserve', deck: l + 1 });
     }
     if (!out.length) out.push({ t: 'pass' });
@@ -150,6 +198,52 @@
       takeCity(s, seat, a.id);
       return endTurn(s, seat);
     }
+    if (s.phase === 'gem') { // Trading posts powers 1 / 2: one free gem token
+      if (a.t !== 'gem' || gemChoices(s, s.gemNot).indexOf(a.c) < 0) throw new Error(s.gemNot >= 0 ? 'Take 1 gem of another colour' : 'Take 1 free gem');
+      s.bank[a.c]--; p.gems[a.c]++;
+      s.last = Object.assign({}, s.last || {}, { bonusGem: a.c });
+      log(s, seat, nm + ' took a free ' + NAMES[a.c] + ' (trading post)');
+      s.phase = 'main'; delete s.gemNot;
+      return proceed(s, seat);
+    }
+    if (s.phase === 'fort') { // Strongholds: the action that comes with every purchase
+      if (a.t !== 'fort') throw new Error('Place, move or remove a stronghold first');
+      const ok = fortMoves(s, seat).some(m => m.id === a.id && m.from === a.from && m.rm === a.rm);
+      if (!ok) throw new Error('A stronghold can’t go there');
+      if (a.rm !== undefined) {
+        const f = s.forts[a.rm];
+        if (--f.n <= 0) delete s.forts[a.rm];
+        log(s, seat, nm + ' removed ' + s.players[f.seat].name + '’s stronghold');
+      } else {
+        if (a.from !== undefined) { const f = s.forts[a.from]; if (--f.n <= 0) delete s.forts[a.from]; }
+        const f = s.forts[a.id] || (s.forts[a.id] = { seat, n: 0 });
+        f.n++;
+        log(s, seat, nm + (a.from !== undefined ? ' moved a stronghold' : ' placed a stronghold') + (f.n > 1 ? ' (' + f.n + ' on one card)' : ''));
+      }
+      s.last = Object.assign({}, s.last || {}, { fort: { id: a.id, from: a.from, rm: a.rm } });
+      s.phase = 'main';
+      return proceed(s, seat);
+    }
+    if (s.phase === 'conquer') { // Strongholds: all 3 on one card -> may buy it as an extra, before nobles and the 10-gem check
+      if (a.t === 'skip') { s.phase = 'main'; s.nobleChoice = []; return proceed(s, seat); }
+      if (a.t !== 'conquer') throw new Error('Buy the card your strongholds hold, or skip');
+      const id = s.nobleChoice[0];
+      let pay = a.pay;
+      if (pay !== undefined) { if (!payOk(p, id, pay)) throw new Error('That payment doesn’t match the cost'); } else pay = autoPay(p, id);
+      if (!pay) throw new Error('You can’t afford that card');
+      const pos = marketPos(s, id);
+      for (let k = 0; k < 6; k++) { p.gems[k] -= pay[k]; s.bank[k] += pay[k]; }
+      delete s.forts[id];
+      s.market[pos[0]][pos[1]] = null;
+      const c = CARDS[id];
+      p.cards.push(id); p.bonus[c.bonus]++; p.points += c.points;
+      s.last = Object.assign({}, s.last || {}, { conquer: id, cqPay: pay, cqFrom: pos });
+      log(s, seat, nm + ' took a ' + NAMES[c.bonus] + (c.points ? ' (' + c.points + ' pt' + (c.points > 1 ? 's' : '') + ')' : '') + ' with 3 strongholds');
+      s.phase = 'main'; s.nobleChoice = [];
+      s.pend = { fort: 1, refill: pos };
+      return proceed(s, seat);
+    }
+    if (s.phase !== 'main') throw new Error('Bad move');
     s.last = { seat, t: a.t };
     if (a.t === 'take') {
       const g = a.g;
@@ -179,6 +273,8 @@
         // an empty spot (null) is not a card
         const pos = Number.isInteger(a.id) ? marketPos(s, a.id) : null;
         if (!pos) throw new Error('That card is not on the table');
+        if (blocked(s, seat, a.id)) throw new Error('Another player’s stronghold holds that card');
+        if (s.forts) delete s.forts[a.id]; // your own strongholds come back to you
         id = a.id; refill(s, pos[0], pos[1]);
         s.last.from = pos;
       }
@@ -193,11 +289,14 @@
       const ri = p.reserved.findIndex(r => r.id === id);
       const pos = ri >= 0 ? null : marketPos(s, id);
       if (ri < 0 && !pos) throw new Error('That card is not on the table');
+      if (ri < 0 && blocked(s, seat, id)) throw new Error('Another player’s stronghold holds that card');
       let pay = a.pay;
       if (pay !== undefined) { if (!payOk(p, id, pay)) throw new Error('That payment doesn’t match the cost'); } else pay = autoPay(p, id);
       if (!pay) throw new Error('You can’t afford that card');
       for (let k = 0; k < 6; k++) { p.gems[k] -= pay[k]; s.bank[k] += pay[k]; }
-      if (ri >= 0) p.reserved.splice(ri, 1); else refill(s, pos[0], pos[1]);
+      if (ri >= 0) p.reserved.splice(ri, 1);
+      else if (s.mod === 'forts') { delete s.forts[id]; s.market[pos[0]][pos[1]] = null; s.pend = { refill: pos }; } // refilled after the stronghold action
+      else refill(s, pos[0], pos[1]);
       const c = CARDS[id];
       p.cards.push(id); p.bonus[c.bonus]++; p.points += c.points;
       s.last.id = id; s.last.from = pos; s.last.reserved = ri >= 0; s.last.pay = pay;
@@ -207,6 +306,27 @@
       if (!(l.length === 1 && l[0].t === 'pass')) throw new Error('You have a legal move');
       log(s, seat, nm + ' had no move and passed');
     } else throw new Error('Bad move');
+    if (!s.mod) return afterAction(s, seat);
+    // module steps that follow the action (powers held from earlier turns; coats of arms are placed at the end of a turn)
+    const pd = s.pend || (s.pend = {});
+    if (s.mod === 'posts' && a.t === 'buy' && hasPost(p, 0)) pd.gem = -1;
+    if (s.mod === 'posts' && a.t === 'take2' && hasPost(p, 1)) pd.gem = a.c;
+    if (s.mod === 'forts' && a.t === 'buy') pd.fort = 1;
+    if (s.mod === 'forts') pd.cq = 1;
+    return proceed(s, seat);
+  }
+  // the steps after a module action, in rulebook order: free gem, stronghold action, refill the market,
+  // conquest (3 strongholds), then the usual 10-gem check, nobles and end of turn
+  function proceed(s, seat) {
+    const pd = s.pend;
+    if (pd) {
+      if (pd.gem !== undefined) { const not = pd.gem; delete pd.gem; if (gemChoices(s, not).length) { s.phase = 'gem'; s.gemNot = not; return s; } }
+      if (pd.fort) { delete pd.fort; if (fortMoves(s, seat).length) { s.phase = 'fort'; return s; } }
+      if (pd.refill) { refill(s, pd.refill[0], pd.refill[1]); delete pd.refill; }
+      if (pd.cq) { delete pd.cq; const id = conquestCard(s, seat); if (id !== null && autoPay(s.players[seat], id)) { s.phase = 'conquer'; s.nobleChoice = [id]; return s; } }
+    }
+    delete s.pend;
+    s.phase = 'main';
     return afterAction(s, seat);
   }
 
@@ -231,6 +351,17 @@
     s.last = Object.assign({}, s.last || {}, { noble: id });
     log(s, seat, p.name + ' was visited by a noble (+3)');
   }
+  // Trading posts: at the end of the turn (after any noble), a coat of arms goes on every power the player now meets
+  function placePosts(s, seat) {
+    const p = s.players[seat];
+    const met = postsMet(p);
+    if (!met.length) return;
+    const before = postPoints(p);
+    met.forEach(i => p.posts.push(i));
+    p.points += postPoints(p) - before;
+    s.last = Object.assign({}, s.last || {}, { posts: met });
+    log(s, seat, p.name + ' placed ' + (met.length > 1 ? met.length + ' coats of arms' : 'a coat of arms') + ' (trading post' + (met.length > 1 ? 's ' : ' ') + met.map(i => i + 1).join(' + ') + ')');
+  }
   function takeCity(s, seat, id) {
     const p = s.players[seat];
     s.cities.splice(s.cities.indexOf(id), 1);
@@ -240,6 +371,7 @@
   }
   function endTurn(s, seat) {
     s.phase = 'main'; s.nobleChoice = [];
+    if (s.mod === 'posts') placePosts(s, seat);
     s.turns++;
     if (s.mode === 'cities' ? s.players[seat].cities.length > 0 : s.players[seat].points >= targetOf(s)) s.finalRound = true;
     const next = (seat + 1) % s.n;
@@ -269,12 +401,17 @@
     const v = {
       n: s.n, mode: s.mode || 'base', target: targetOf(s), cities: s.cities || [], market: s.market, deckSizes: s.decks.map(d => d.length), bank: s.bank, nobles: s.nobles,
       start: s.start, turn: s.turn, phase: s.phase, turns: s.turns, finalRound: s.finalRound, over: s.over,
-      result: s.result, nobleChoice: s.phase === 'noble' || s.phase === 'city' ? s.nobleChoice : [], last: publicLast(s.last, s, seat), log: s.log, seat,
-      players: s.players.map((p, i) => ({
-        name: p.name, gems: p.gems, bonus: p.bonus, cards: p.cards, nobles: p.nobles, cities: p.cities || [], points: p.points,
-        reserved: p.reserved.map(r => (r.blind && i !== seat && !s.over) ? { id: null, blind: true, level: CARDS[r.id].level } : { id: r.id, blind: r.blind, level: CARDS[r.id].level }),
-      })),
+      result: s.result, nobleChoice: s.phase === 'noble' || s.phase === 'city' || s.phase === 'conquer' ? s.nobleChoice : [], last: publicLast(s.last, s, seat), log: s.log, seat,
+      players: s.players.map((p, i) => {
+        const o = { name: p.name, gems: p.gems, bonus: p.bonus, cards: p.cards, nobles: p.nobles, cities: p.cities || [], points: p.points,
+          reserved: p.reserved.map(r => (r.blind && i !== seat && !s.over) ? { id: null, blind: true, level: CARDS[r.id].level } : { id: r.id, blind: r.blind, level: CARDS[r.id].level }) };
+        if (p.posts) o.posts = p.posts;
+        return o;
+      }),
     };
+    if (s.mod) v.mod = s.mod;
+    if (s.forts) v.forts = s.forts;
+    if (s.phase === 'gem') v.gemNot = s.gemNot;
     return clone(v);
   }
   function publicLast(last, s, seat) {
@@ -314,10 +451,11 @@
     for (let k = 0; k < 5; k++) { d[k] = Math.max(0, c[k] - p.bonus[k] - p.gems[k]); }
     const shortTotal = sum(d);
     let gold = p.gems[5];
-    if (shortTotal <= gold) return 0;
+    const dbl = hasPost(p, 2) ? 2 : 1; // Trading posts power 3: a gold pays for 2 gems of one colour
+    if (dbl === 1 ? shortTotal <= gold : d.reduce((a, x) => a + Math.ceil(x / 2), 0) <= gold) return 0;
     // gems still in hand that count toward the card + gold all stay in hand while collecting
     for (let k = 0; k < 5; k++) held += Math.min(p.gems[k], Math.max(0, c[k] - p.bonus[k]));
-    if (held + gold + (shortTotal - gold) > MAX_TOKENS) return Infinity;
+    if (held + gold + Math.max(0, shortTotal - dbl * gold) > MAX_TOKENS) return Infinity;
     const two = [0, 1, 2, 3, 4].map(k => (bank ? bank[k] >= 4 : true) ? 1 : 0);
     // spend gold where it saves the most turns
     let best = Infinity;
@@ -326,10 +464,11 @@
         if (bank && e.some((x, i) => x > bank[i])) return;
         best = Math.min(best, turnsFor(e, two)); return;
       }
-      for (let x = 0; x <= Math.min(g, d[k]); x++) { const f = e.slice(); f[k] = d[k] - x; rec(k + 1, g - x, f); }
+      for (let x = 0; x <= Math.min(g, Math.ceil(d[k] / dbl)); x++) { const f = e.slice(); f[k] = Math.max(0, d[k] - dbl * x); rec(k + 1, g - x, f); }
     })(0, gold, d.slice());
     return best;
   }
 
-  return { TARGETS, targetOf, setup, apply, legal, view, autoPay, payOk, qualifies, cityOk, turnsToAfford, tokens, NAMES, clone };
+  return { TARGETS, targetOf, setup, apply, legal, view, autoPay, payOk, qualifies, cityOk, turnsToAfford, tokens, NAMES, clone,
+    MODS, hasPost, postsMet, postPoints, fortOf, blocked, fortsLeft, fortMoves, conquestCard, gemChoices };
 });
