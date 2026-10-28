@@ -36,6 +36,20 @@
       { id: 'cities', title: 'Cities variant', short: 'Cities', html:
         '<p>An option from the <i>Cities of Splendor</i> expansion. No nobles: 3 city tiles instead. A city needs the points shown <b>and</b> the bonuses shown (grey squares mean "this many of one colour" or "of one other colour").</p>' +
         '<p>Taking a city ends the game after the round; only players with a city can win.</p>' },
+      { id: 'posts', title: 'Trading posts module', short: 'Posts', html:
+        '<p>An option in Settings, from <i>Cities of Splendor</i>. Nobles stay. Five trading posts each ask for certain <b>cards</b> (bonuses). At the end of your turn, after any noble, your coat of arms goes on every post you now meet, for the rest of the game. Everyone can hold every post.</p>' +
+        '<table><tr><th>Post</th><th>Needs</th><th>You get</th></tr>' +
+        '<tr><td>1</td><td>3 red + 1 white</td><td>After each buy, take 1 gem (not gold)</td></tr>' +
+        '<tr><td>2</td><td>2 white</td><td>Taking 2 of one colour also gives 1 of another colour</td></tr>' +
+        '<tr><td>3</td><td>3 blue + 1 black</td><td>Each gold you pay with counts as 2 gems of one colour</td></tr>' +
+        '<tr><td>4</td><td>5 green + a noble</td><td>5 points</td></tr>' +
+        '<tr><td>5</td><td>3 black</td><td>1 point per coat of arms you have placed</td></tr></table>' +
+        '<p class="tip">Tap the posts tile beside the nobles to see who holds which.</p>' },
+      { id: 'forts', title: 'Strongholds module', short: 'Strongholds', html:
+        '<p>An option in Settings, from <i>Cities of Splendor</i>. Nobles stay. Each player has <b>3 strongholds</b>.</p>' +
+        '<ul><li>Each time you buy a card, you then do one: put a stronghold on a card on the table (empty, or one of your own; 3 per card at most), move one of yours to another card, or knock another player\'s off a card.</li>' +
+        '<li>A card with someone else\'s stronghold on it can be bought or reserved <b>only by them</b>. When they do, their strongholds come back to them.</li>' +
+        '<li>All 3 of yours on one card: after your action you may buy it as well (pay as usual), then do another stronghold step.</li></ul>' },
       { id: 'site', title: 'This site', short: 'Site', html:
         '<ul><li><b>Turn badges</b> on each card: how many turns of gems it is from you. ✓ = you can buy it now.</li>' +
         '<li><b>Hint</b>: what the Hard computer would do, and why.</li>' +
@@ -43,6 +57,13 @@
         '<li><b>Points to win</b> (Settings): 10, 15, 18 or 21. 15 is the standard game; the computers play to whatever is set.</li>' +
         '<li><b>Daily</b>: the same deal for everyone today, against Hard. <b>Challenges</b>: set deals with a goal and up to 3 stars.</li>' +
         '<li><b>Study</b>: after a game, each of your moves next to Hard\'s, and the points race.</li></ul>' },
+      { id: 'videos', title: 'Videos', short: 'Videos', html:
+        '<p>Short videos on YouTube (they open in a new tab):</p><ul>' +
+        '<li><a href="https://www.youtube.com/watch?v=rue8-jvbc9I" target="_blank" rel="noopener">Splendor: How to Play</a> (Watch It Played)</li>' +
+        '<li><a href="https://www.youtube.com/watch?v=lYIdqDcoPiA" target="_blank" rel="noopener">How to Win Splendor: strategy tips</a> (World Series of Board Gaming)</li>' +
+        '<li><a href="https://www.youtube.com/watch?v=E-7-9VfpiEs" target="_blank" rel="noopener">Cities of Splendor: how to play</a> (The Lonely Gamer)</li>' +
+        '<li><a href="https://www.youtube.com/watch?v=yZWcwG3fsUk" target="_blank" rel="noopener">Cities of Splendor: Trading posts</a> (Lounge Lizard Games)</li>' +
+        '<li><a href="https://www.youtube.com/watch?v=velplGTk9rE" target="_blank" rel="noopener">Cities of Splendor: Strongholds</a> (Lounge Lizard Games)</li></ul>' },
     ],
   };
 
