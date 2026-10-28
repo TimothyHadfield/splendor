@@ -12,7 +12,14 @@
   const SEAT_COL = ['#6ea8fe', '#f0b354', '#c58cf0', '#6ee7a8'];
   const LV_NAME = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
   const LEVEL_NOTE = { easy: 'Grabs gems', medium: 'Chases points', hard: 'Plans ahead' };
-  const BOT_MS = 750;
+  // how long a computer "thinks" before its move (Settings: Computer speed); Normal is the old fixed 750 ms
+  const BOT_SPEED = { slow: 1300, normal: 750, fast: 300 };
+  const botMs = () => BOT_SPEED[store.settings.botSpeed] || 750;
+  // the Cities of Splendor modules (one at a time; the Cities variant wins over them)
+  const modOn = () => (E.MODS.indexOf(store.settings.module) >= 0 ? store.settings.module : undefined);
+  const MOD_NAME = { posts: 'Trading posts', forts: 'Strongholds' };
+  const MOD_NOTE = { posts: 'Five trading posts: own the cards a post asks for and your coat of arms goes on it, for a lasting power or points.',
+    forts: 'Each player has 3 strongholds. After every buy, put one on a card on the table (only you may buy or reserve it) or knock off someone else’s; all 3 on one card let you buy it at once.' };
 
   // ------------------------------------------------------------------ sound & effects (shared fx.js; switches in Settings)
   const FX = window.FX;
@@ -36,7 +43,7 @@
   try { store = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { store = null; }
   if (!store || typeof store !== 'object' || Array.isArray(store)) store = {};
   if (!store.settings || typeof store.settings !== 'object' || Array.isArray(store.settings)) store.settings = {};
-  const defSettings = { seats: ['computer', 'off', 'off'], level: 'hard', cities: false, showTurns: true, hints: true, name: '', target: 15, styles: 'balanced' };
+  const defSettings = { seats: ['computer', 'off', 'off'], level: 'hard', cities: false, showTurns: true, hints: true, name: '', target: 15, styles: 'balanced', module: 'none', botSpeed: 'normal' };
   store.settings = Object.assign({}, defSettings, store.settings || {});
   { // clamp anything odd from an old or edited save
     const st = store.settings;
@@ -47,6 +54,8 @@
     st.cities = st.cities === true;
     if (E.TARGETS.indexOf(st.target) < 0) st.target = 15;
     if (st.styles !== 'mixed') st.styles = 'balanced';
+    if (E.MODS.indexOf(st.module) < 0) st.module = 'none';
+    if (!BOT_SPEED[st.botSpeed]) st.botSpeed = 'normal';
   }
   if (!store.chal || typeof store.chal !== 'object' || Array.isArray(store.chal)) store.chal = {};
   // the same seeded numbers as tools/measure.js, so a challenge deals exactly the cards its star marks were measured on
@@ -64,7 +73,16 @@
     const gems = (a, n) => isArr(a) && a.length === n && a.every(x => int(x, 0, 99));
     if (!s || typeof s !== 'object' || !int(s.n, 2, 4) || !isArr(s.players) || s.players.length !== s.n) return false;
     if (!int(s.turn, 0, s.n - 1) || !int(s.start, 0, s.n - 1) || !int(s.turns, 0, 100000)) return false;
-    if (['main', 'discard', 'noble', 'city'].indexOf(s.phase) < 0 || !isArr(s.log) || !gems(s.bank, 6)) return false;
+    if (['main', 'discard', 'noble', 'city', 'gem', 'fort', 'conquer'].indexOf(s.phase) < 0 || !isArr(s.log) || !gems(s.bank, 6)) return false;
+    // the Cities of Splendor modules: only the pieces the engine makes for them
+    if (s.mod !== undefined && E.MODS.indexOf(s.mod) < 0) return false;
+    if (['gem', 'fort', 'conquer'].indexOf(s.phase) >= 0 && !s.mod) return false;
+    if (s.phase === 'gem' && !int(s.gemNot, -1, 4)) return false;
+    if (s.phase === 'conquer' && !(ids(s.nobleChoice, 89) && s.nobleChoice.length === 1)) return false;
+    if (s.pend !== undefined && (!s.pend || typeof s.pend !== 'object')) return false;
+    if (s.mod === 'forts' && (!s.forts || typeof s.forts !== 'object' || isArr(s.forts) ||
+      !Object.keys(s.forts).every(k => int(Number(k), 0, 89) && s.forts[k] && int(s.forts[k].seat, 0, s.n - 1) && int(s.forts[k].n, 1, 3)))) return false;
+    if (s.mod === 'posts' && !s.players.every(p => p && ids(p.posts, 4))) return false;
     if (!isArr(s.decks) || s.decks.length !== 3 || !s.decks.every(d => ids(d, 89))) return false;
     if (!isArr(s.market) || s.market.length !== 3 || !s.market.every(r => isArr(r) && r.length <= 4 && r.every(x => x === null || int(x, 0, 89)))) return false;
     if (!ids(s.nobles, NOBLES.length - 1) || !ids(s.cities || [], CITIES.length - 1)) return false;
@@ -193,7 +211,7 @@
     let r;
     try {
       const room = await loadOnline();
-      if (k === 'create') r = await room.createRoom({ name, seats: onlineSeatsFromSettings(), options: { level: store.settings.level, cities: store.settings.cities } });
+      if (k === 'create') r = await room.createRoom({ name, seats: onlineSeatsFromSettings(), options: { level: store.settings.level, cities: store.settings.cities, module: store.settings.cities ? null : (modOn() || null) } });
       else r = await room.joinRoom(code, name);
     } catch (e) { r = { ok: false, message: 'Online play couldn’t load. Check your internet.' }; }
     net.connecting = false;
@@ -204,7 +222,15 @@
   // ------------------------------------------------------------------ ui state
   const ui = { online: false, tab: 'play', sel: null, take: [], ret: [0, 0, 0, 0, 0, 0], hint: null, prev: null, botTimer: null,
     cardsLevel: 0, cardsSort: 'value', shownSeat: null, study: (store.game && store.game.study) || { rec: [], race: [] } };
-  function resetSel() { ui.sel = null; ui.take = []; ui.ret = [0, 0, 0, 0, 0, 0]; ui.hint = null; }
+  function resetSel() { ui.sel = null; ui.take = []; ui.ret = [0, 0, 0, 0, 0, 0]; ui.hint = null; ui.fortFrom = null; }
+  // Strongholds step: the market cards a tap can act on (place / knock off; with none left in your supply, pick one of yours up)
+  function fortTargetsFor(v, seat) {
+    const moves = E.legal(v, seat);
+    if (ui.fortFrom != null) return moves.filter(m => m.from === ui.fortFrom).map(m => m.id);
+    const out = moves.filter(m => m.from === undefined).map(m => (m.id !== undefined ? m.id : m.rm));
+    if (E.fortsLeft(v, seat) === 0) moves.forEach(m => { if (m.from !== undefined && out.indexOf(m.from) < 0) out.push(m.from); });
+    return out;
+  }
 
   // ------------------------------------------------------------------ helpers
   function heat(x, lo, hi) { const f = Math.max(0, Math.min(1, (x - lo) / (hi - lo))); return 'hsl(' + Math.round(f * 130) + ', 70%, 62%)'; }
@@ -368,7 +394,7 @@
         '<p class="muted small" style="margin:0;text-align:center">Friends open this site, tap Play online and type the code.</p></div>' +
         '<div class="panel"><span class="label">Seats</span><div class="seats" id="lobby-seats">' + seats + '</div>' +
         (host ? '<button class="btn primary" data-on="start" id="on-start" style="width:100%"' + (net.connecting ? ' disabled' : '') + '>' + (net.connecting ? 'Starting…' : 'Start') + '</button>' +
-          '<p class="muted small" style="margin:0">' + (o.cities ? 'Cities variant. ' : '') + 'Open seats become ' + esc(LV_NAME[o.level] || 'Hard') + ' computers.</p>' :
+          '<p class="muted small" style="margin:0">' + (o.cities ? 'Cities variant. ' : MOD_NAME[o.module] ? MOD_NAME[o.module] + ' module. ' : '') + 'Open seats become ' + esc(LV_NAME[o.level] || 'Hard') + ' computers.</p>' :
           '<p class="muted small" style="margin:0">Waiting for the host to start…</p>') + '</div>';
     } else {
       body = '<div class="panel"><span class="label">Your name</span>' +
@@ -414,7 +440,7 @@
       '<div class="morerow"><button class="btn" data-on="open" id="open-online">Play online</button>' +
       (P ? '<button class="btn" data-daily id="daily-btn">' + (dailyDone() ? 'Daily ✓' : 'Daily') + '</button>' : '') +
       (window.SpChallenges ? '<button class="btn" data-chal id="chal-btn">Challenges</button>' : '') + '</div>' +
-      (s.target !== 15 || (s.styles === 'mixed' && s.level === 'hard') ? '<p class="muted small" style="margin:0">' + (s.target !== 15 ? 'First to ' + s.target + ' points. ' : '') + (s.styles === 'mixed' && s.level === 'hard' ? 'Hard computers play in mixed styles. ' : '') + '(Settings)</p>' : '') +
+      (s.target !== 15 || (s.styles === 'mixed' && s.level === 'hard') || (modOn() && !s.cities) ? '<p class="muted small" style="margin:0">' + (modOn() && !s.cities ? MOD_NAME[modOn()] + ' module on. ' : '') + (s.target !== 15 ? 'First to ' + s.target + ' points. ' : '') + (s.styles === 'mixed' && s.level === 'hard' ? 'Hard computers play in mixed styles. ' : '') + '(Settings)</p>' : '') +
       '</div>' +
       (store.last ? '<button class="btn ghost" data-go="study">Study your last game</button>' : '') +
       '</div>';
@@ -446,7 +472,9 @@
     if (opt.levels) { const seen = {}; names.forEach((nm, i) => { if (kinds[i] !== 'computer') return; seen[nm] = (seen[nm] || 0) + 1; }); const c2 = {}; names.forEach((nm, i) => { if (kinds[i] === 'computer' && seen[nm] > 1) { c2[nm] = (c2[nm] || 0) + 1; names[i] = nm + ' ' + c2[nm]; } }); }
     const rng = opt.rng || Math.random;
     const target = opt.target || (opt.daily || opt.tutorial || opt.challenge ? 15 : s.target);
-    const state = E.setup(kinds.length, { cities: opt.cities != null ? opt.cities : (opt.daily || opt.tutorial ? false : s.cities), target, firstSeat: opt.firstSeat }, rng, names);
+    // the modules never come into the Daily, the guided game or a challenge (their deals and stars are measured on the base game)
+    const module = opt.module !== undefined ? opt.module : (opt.daily || opt.tutorial || opt.challenge ? undefined : modOn());
+    const state = E.setup(kinds.length, { cities: opt.cities != null ? opt.cities : (opt.daily || opt.tutorial ? false : s.cities), target, firstSeat: opt.firstSeat, module }, rng, names);
     store.game = { state, kinds, level, levels, styles, started: Date.now(), lastHuman: 0, study: { rec: [], race: [[0, state.players.map(() => 0)]] },
       undo: [], helped: false, hinted: false, recorded: false, myTurns: 0, reserves: 0,
       daily: opt.daily || null, tutorial: !!opt.tutorial, challenge: opt.challenge || null };
@@ -667,7 +695,7 @@
       try { g.state = E.apply(st, seat, B.decide(E.view(st, seat), seat, (g.levels && g.levels[seat]) || g.level || 'hard', Math.random, g.styles && g.styles[seat])); }
       catch (e) { g.state = E.apply(st, seat, E.legal(st, seat)[0]); }
       afterLocalMove();
-    }, BOT_MS);
+    }, botMs());
   }
 
   // ------------------------------------------------------------------ the table screen
@@ -707,13 +735,16 @@
       const cls = choose && v.nobleChoice.indexOf(id) >= 0 ? ' choose' : close <= 2 ? ' close' : '';
       return Art.noble(id, 'noble' + cls).replace('<svg ', '<svg data-noble="' + id + '" ');
     }).join('');
+    const postsTile = v.mod === 'posts' ? Art.postsMini([0, 1, 2, 3, 4].map(i => v.players.map((p, j) => ((p.posts || []).indexOf(i) >= 0 ? SEAT_COL[j] : null)).filter(Boolean)), 'noble pmini').replace('<svg ', '<svg data-posts="1" id="posts-tile" role="button" ') : '';
     const tgt = v.target || 15;
     const rnd = '<div class="rnd">' + (v.finalRound && !v.over ? '<span class="final">Final round</span><br>' : '') + 'Round <b>' + (Math.floor(v.turns / v.n) + 1) + '</b>' + (tgt !== 15 && !isCities ? ' · to ' + tgt : '') +
       qBtn(isCities ? 'A city comes to you at the end of your turn once you have its prestige and bonuses (grey = that many of one colour; "other" = one colour not already shown). Then the round finishes; only city holders can win, most points first.' :
         'First to ' + tgt + ' prestige ends the game, but the round is finished so everyone has the same number of turns. Most points wins; a tie goes to whoever bought fewer cards.') + '</div>';
-    const nobles = '<div class="nobles"><div class="ntiles">' + nob + '</div>' + rnd + '</div>';
+    const nobles = '<div class="nobles' + (postsTile ? ' more' : '') + '"><div class="ntiles">' + nob + postsTile + '</div>' + rnd + '</div>';
 
-    // market
+    // market (Strongholds: the towers standing on cards; in the stronghold step, the cards you may tap)
+    const fortTargets = my && v.phase === 'fort' ? fortTargetsFor(v, seat) : null;
+    const cqId = my && v.phase === 'conquer' ? v.nobleChoice[0] : null;
     let market = '<div class="market">';
     for (let l = 2; l >= 0; l--) {
       market += '<div class="mrow">';
@@ -726,8 +757,11 @@
         const badge = showT ? '<span class="tta' + (t === 0 ? ' now' : t === Infinity ? ' far' : '') + '" style="color:' + (t === 0 ? 'var(--good)' : t === Infinity ? '#59607a' : heat(4 - t, 0, 3)) + '">' + (t === 0 ? '✓' : t === Infinity ? '' : t) + '</span>' : '';
         const isNew = (prev && prev.market[l][i] !== id) || ui.dealAll;
         const sel = ui.sel && ui.sel.kind === 'card' && ui.sel.id === id;
-        const hint = ui.hint && (ui.hint.t === 'buy' || ui.hint.t === 'reserve') && ui.hint.id === id;
-        market += '<div class="slot' + (sel ? ' sel' : '') + (hint ? ' hint' : '') + '"' + (isNew ? ' data-dealt="' + (l + 1) + '"' : '') + ' data-card="' + id + '" id="c-' + id + '">' + Art.card(id) + badge + '</div>';
+        const hint = (ui.hint && (ui.hint.t === 'buy' || ui.hint.t === 'reserve') && ui.hint.id === id) || cqId === id;
+        const fo = v.forts && v.forts[id];
+        const fpick = fortTargets && fortTargets.indexOf(id) >= 0, ffrom = ui.fortFrom === id && v.phase === 'fort';
+        market += '<div class="slot' + (sel || ffrom ? ' sel' : '') + (hint ? ' hint' : '') + (fpick ? ' fpick' : '') + (fo && fo.seat !== seat ? ' held' : '') + '"' + (isNew ? ' data-dealt="' + (l + 1) + '"' : '') + ' data-card="' + id + '" id="c-' + id + '">' + Art.card(id) + badge +
+          (fo ? '<span class="fortb" title="' + esc(v.players[fo.seat].name) + ': ' + fo.n + ' stronghold' + (fo.n > 1 ? 's' : '') + '">' + Art.fort(SEAT_COL[fo.seat], fo.n) + '</span>' : '') + '</div>';
       });
       market += '</div>';
     }
@@ -762,7 +796,7 @@
       res += '<div class="slot' + (sel ? ' sel' : '') + (hint ? ' hint' : '') + '" data-card="' + r.id + '" data-res="1" id="c-' + r.id + '">' + (r.id !== null ? Art.card(r.id) : Art.back(r.level)) + '</div>';
     });
     res += '</div>';
-    const meBox = '<div class="me' + (my ? ' turn' : '') + '" id="me-box"><div class="mine-info"><b id="my-pts">' + me.points + '</b>pts<br>' + sum(me.gems) + '/10</div>' + holds + res + '</div>';
+    const meBox = '<div class="me' + (my ? ' turn' : '') + '" id="me-box"><div class="mine-info"><b id="my-pts">' + me.points + '</b>pts<br>' + sum(me.gems) + '/10' + (v.forts ? '<span class="fsup" id="my-forts" title="Strongholds not on a card">' + Art.fort(SEAT_COL[seat]) + E.fortsLeft(v, seat) + '</span>' : '') + '</div>' + holds + res + '</div>';
 
     // action bar
     const acts = '<div class="acts' + (my ? ' go' : '') + '" id="acts">' + actionBar(v, seat, my) + '</div>';
@@ -907,6 +941,17 @@
     }
     if (v.phase === 'noble') return '<div class="say"><b>' + (['Two', 'Three', 'Four', 'Five'][v.nobleChoice.length - 2] || 'Several') + ' nobles want to visit.</b> Tap the one you want.</div>';
     if (v.phase === 'city') return '<div class="say"><b>You qualify for more than one city.</b> Tap the one you take.</div>';
+    if (v.phase === 'gem') return '<div class="say"><b>Trading post: take 1 free gem.</b> Tap ' + (v.gemNot >= 0 ? 'a colour other than ' + COLW[v.gemNot] : 'any colour') + ' in the bank.</div>';
+    if (v.phase === 'fort') {
+      const left = E.fortsLeft(v, seat), canRm = E.legal(v, seat).some(m => m.rm !== undefined);
+      if (ui.fortFrom != null) return '<div class="say"><b>Move this stronghold.</b> Tap the card it goes to.</div><button class="btn ghost" data-fcancel>Cancel</button>';
+      return '<div class="say"><b>Stronghold.</b> ' + (left ? 'Tap a card to put one on it (' + left + ' left)' : 'Tap one of yours to move it') + (canRm ? ', or tap another player’s to knock it off.' : '.') + '</div>';
+    }
+    if (v.phase === 'conquer') {
+      const id = v.nobleChoice[0], pay = E.autoPay(me, id);
+      return '<div class="say"><b>All 3 strongholds hold your ' + esc(cardName(id)) + '.</b> Buy it now as well' + (pay && pay[5] ? ' (uses ' + pay[5] + ' gold)' : '') + '?</div>' +
+        '<button class="btn ghost" data-cq-skip id="cq-skip">Skip</button><button class="btn primary" data-cq id="cq-buy">Buy</button>';
+    }
     const leg = E.legal(v, seat);
     if (leg.length === 1 && leg[0].t === 'pass') return '<div class="say"><b>No legal move.</b> You must pass.</div><button class="btn primary" data-pass>Pass</button>';
     if (ui.take.length) {
@@ -922,6 +967,8 @@
     if (ui.sel && ui.sel.kind === 'card') {
       const id = ui.sel.id;
       const mine = me.reserved.some(r => r.id === id);
+      const fo = !mine && v.forts && v.forts[id];
+      if (fo && fo.seat !== seat) return '<div class="say"><b>' + esc(cardName(id)) + '</b><br>' + esc(v.players[fo.seat].name) + '’s stronghold' + (fo.n > 1 ? 's hold' : ' holds') + ' it: only they can buy or reserve it.</div>';
       const t = E.turnsToAfford(me, id, v.bank);
       const canBuy = E.autoPay(me, id) !== null;
       const pay = canBuy ? E.autoPay(me, id) : null;
@@ -1138,6 +1185,7 @@
     const pl = t.closest('[data-player]');
     if (pl) { showPlayer(v, Number(pl.dataset.player), seat); return; }
     if (t.closest('[data-menu]')) { menu(v); return; }
+    if (t.closest('[data-posts]')) { showPosts(v, seat); return; }
     if (t.closest('[data-end]')) { showEnd(v, seat); return; }
     if (t.closest('[data-new]')) { newGameAsk(); return; }
     if (t.closest('[data-leave]')) { leaveOnline(); return; }
@@ -1160,6 +1208,35 @@
       renderPlay(); return;
     }
     if (t.closest('[data-pass]')) { act({ t: 'pass' }); return; }
+    if (v.phase === 'gem') {
+      const tk = t.closest('[data-tok]');
+      if (tk) { const k = Number(tk.dataset.tok); if (E.gemChoices(v, v.gemNot).indexOf(k) >= 0) act({ t: 'gem', c: k }); else nope(k === 5 ? 'The free gem can’t be gold' : !v.bank[k] ? 'No ' + COLW[k] + ' left' : 'Take a colour other than ' + COLW[k], tk); return; }
+      const h = t.closest('[data-card], [data-deck]'); if (h) nope('Take your free gem from the bank first', h);
+      return;
+    }
+    if (v.phase === 'fort') {
+      if (t.closest('[data-fcancel]')) { ui.fortFrom = null; renderPlay(); return; }
+      const cd = t.closest('.market [data-card]');
+      if (!cd) { const h = t.closest('[data-card], [data-tok], [data-deck]'); if (h) nope('Put your stronghold on a card on the table first', h); return; }
+      const id = Number(cd.dataset.card), moves = E.legal(v, seat);
+      if (ui.fortFrom != null) {
+        if (id === ui.fortFrom) { ui.fortFrom = null; renderPlay(); return; }
+        const m = moves.find(x => x.from === ui.fortFrom && x.id === id);
+        if (m) act(m); else nope('A stronghold can’t go there', cd);
+        return;
+      }
+      const m = moves.find(x => x.rm === id) || moves.find(x => x.id === id && x.from === undefined);
+      if (m) { act(m); return; }
+      if (moves.some(x => x.from === id)) { ui.fortFrom = id; renderPlay(); return; }
+      nope(v.forts[id] && v.forts[id].n >= 3 ? 'A card holds 3 strongholds at most' : 'A stronghold can’t go there', cd);
+      return;
+    }
+    if (v.phase === 'conquer') {
+      if (t.closest('[data-cq]')) { act({ t: 'conquer' }); return; }
+      if (t.closest('[data-cq-skip]')) { act({ t: 'skip' }); return; }
+      const h = t.closest('[data-card], [data-tok], [data-deck]'); if (h) nope('Buy the card your strongholds hold, or Skip', h);
+      return;
+    }
     if (v.phase === 'city') { const c = t.closest('[data-city]'); if (c && v.nobleChoice.indexOf(Number(c.dataset.city)) >= 0) act({ t: 'city', id: Number(c.dataset.city) }); return; }
     if (v.phase === 'noble') { const n = t.closest('[data-noble]'); if (n && v.nobleChoice.indexOf(Number(n.dataset.noble)) >= 0) act({ t: 'noble', id: Number(n.dataset.noble) }); return; }
     if (v.phase === 'discard') {
@@ -1223,6 +1300,18 @@
       '<span class="label" style="display:block;margin-top:10px">Recent moves</span><ul class="log">' + logHTML(v, seat) + '</ul>');
     document.querySelectorAll('#sheet .row svg.card').forEach(s => { s.style.height = '84px'; s.style.width = 'auto'; });
   }
+  // Trading posts: the five tiles with their powers and who holds each
+  const POST_TXT = ['After each buy, take 1 gem (any colour but gold).', 'When you take 2 of one colour, take 1 gem of another colour too.',
+    'Each gold you pay with counts as 2 gems of one colour.', '5 points.', '1 point for each of your coats of arms, this one included.'];
+  function showPosts(v, seat) {
+    const rows = SpCards.POSTS.map(t => {
+      const who = v.players.map((p, j) => ((p.posts || []).indexOf(t.id) >= 0 ? (j === seat ? 'You' : p.name) : null)).filter(Boolean);
+      const need = t.req.map((x, k) => (x ? x + ' ' + COLW[k] : '')).filter(Boolean).join(' + ') + ' cards' + (t.noble ? ' and a noble' : '');
+      return '<div class="post-row">' + Art.post(t.id, v.players.map((p, j) => ((p.posts || []).indexOf(t.id) >= 0 ? SEAT_COL[j] : null)).filter(Boolean), 'post') +
+        '<div class="grow"><b>' + esc(need) + '</b><br>' + esc(POST_TXT[t.id]) + '<br><span class="muted small">' + (who.length ? esc(who.join(', ')) : 'Nobody yet') + '</span></div></div>';
+    }).join('');
+    sheet('Trading posts', '<p class="muted small" style="margin:0 0 8px">Own the cards a post asks for and your coat of arms goes on it at the end of your turn, for the rest of the game. Everyone can hold every post.</p>' + rows);
+  }
   function menu(v) {
     const online = table.online;
     sheet('Game', '<div style="display:flex;flex-direction:column;gap:8px">' +
@@ -1281,7 +1370,7 @@
       if (e.target.closest('[data-go-study]')) { closeSheet(); showTab('study', true); }
       if (e.target.closest('[data-chal-again]')) { const id = g.challenge; closeSheet(); dropOverlay(); endLocalGame(); startChallenge(id); }
       if (e.target.closest('[data-again]')) { // the same table again: same seats, levels, styles and rules, a new deal
-        const o = { kinds: g.kinds.slice(), level: g.level, levels: g.levels, styles: g.styles, target: E.targetOf(g.state), cities: g.state.mode === 'cities' };
+        const o = { kinds: g.kinds.slice(), level: g.level, levels: g.levels, styles: g.styles, target: E.targetOf(g.state), cities: g.state.mode === 'cities', module: g.state.mod || null };
         closeSheet(); dropOverlay(); endLocalGame(); startGame(o);
       }
     });
@@ -1384,7 +1473,12 @@
       '<div class="panel"><div class="setrow"><div class="grow"><b>Points to win</b><span>15 is the standard game. Your next game vs computers.</span></div></div>' +
       '<div class="seg" data-set-opt="target">' + E.TARGETS.map(n => '<button aria-pressed="' + (s.target === n) + '" data-v="' + n + '">' + n + '</button>').join('') + '</div>' +
       '<div class="setrow" style="margin-top:6px"><div class="grow"><b>Hard computers’ styles</b><span>Mixed: each Hard computer plays its own way (' + Object.keys(B.STYLES).map(k => B.STYLES[k].name).join(', ') + '), all about as strong.</span></div></div>' +
-      '<div class="seg" data-set-opt="styles"><button aria-pressed="' + (s.styles !== 'mixed') + '" data-v="balanced">All balanced</button><button aria-pressed="' + (s.styles === 'mixed') + '" data-v="mixed">Mixed</button></div></div>' +
+      '<div class="seg" data-set-opt="styles"><button aria-pressed="' + (s.styles !== 'mixed') + '" data-v="balanced">All balanced</button><button aria-pressed="' + (s.styles === 'mixed') + '" data-v="mixed">Mixed</button></div>' +
+      '<div class="setrow" style="margin-top:6px"><div class="grow"><b>Computer speed</b><span>How long a computer takes over each move.</span></div></div>' +
+      '<div class="seg" data-set-opt="botSpeed">' + [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast']].map(([k, t]) => '<button aria-pressed="' + (s.botSpeed === k) + '" data-v="' + k + '">' + t + '</button>').join('') + '</div></div>' +
+      '<div class="panel" id="mod-panel"><div class="setrow"><div class="grow"><b>Cities of Splendor modules</b><span>One at a time, for your next game vs computers or online. Off is the standard game; the Daily, challenges and the guided game always play it.' + (s.cities ? ' The Cities variant is on (Play screen), so these wait until it is off.' : '') + '</span></div></div>' +
+      '<div class="seg" data-set-opt="module"><button aria-pressed="' + (!modOn()) + '" data-v="none">Off</button>' + E.MODS.map(k => '<button aria-pressed="' + (s.module === k) + '" data-v="' + k + '">' + MOD_NAME[k] + '</button>').join('') + '</div>' +
+      (modOn() ? '<p class="small muted" style="margin:6px 0 0">' + esc(MOD_NOTE[modOn()]) + '</p>' : '') + '</div>' +
       (SC || SP ? '<div class="panel">' +
         (SC ? '<div class="setrow"><div class="grow"><b>Rules</b><span>How to play, in short sections.</span></div><button class="btn small" data-rules>Open</button></div>' +
           '<div class="setrow"><div class="grow"><b>Guided game</b><span>One game against Easy with tips on screen.</span></div><button class="btn small" data-tutorial>Start</button></div>' : '') +

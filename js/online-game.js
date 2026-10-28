@@ -11,10 +11,10 @@
     id: 'splendor',
     minSeats: 2,
     maxSeats: 4,
-    // options: { level: 'easy'|'medium'|'hard' }
+    // options: { level: 'easy'|'medium'|'hard', cities: bool, module: 'posts'|'forts' (a Cities of Splendor module; Cities wins) }
     setup(nSeats, options, rng, seats) {
       const names = (seats || []).map((s, i) => (s && s.name) || (s && s.kind === 'computer' ? 'Computer ' + (i + 1) : 'Player ' + (i + 1)));
-      const s = Engine.setup(nSeats, { cities: !!(options && options.cities) }, rng, names);
+      const s = Engine.setup(nSeats, { cities: !!(options && options.cities), module: options && options.module }, rng, names);
       s.level = LEVELS.indexOf(options && options.level) >= 0 ? options.level : 'hard';
       return s;
     },

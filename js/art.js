@@ -291,5 +291,59 @@
       <text x="80" y="29" text-anchor="middle" font-size="19" font-weight="900" fill="#f0c040">${c.pts}</text>
       ${req}</svg>`;
   }
-  root.SpArt = { gem, chip, card, back, noble, city, PAL, LV_COL };
+  // ---- Cities of Splendor modules (original art in the same tile style)
+  // a coat of arms: a small shield in a player's colour
+  const f1 = v => (+v).toFixed(1);
+  const shield = (x, y, s, col) => `<path d="M${x} ${y} h${s} v${f1(s * 0.55)} q0 ${f1(s * 0.55)} ${f1(-s / 2)} ${f1(s * 0.75)} q${f1(-s / 2)} ${f1(-s * 0.2)} ${f1(-s / 2)} ${f1(-s * 0.75)}z" fill="${col}" stroke="#2a1a22" stroke-width="1.4"/><path d="M${f1(x + s / 2)} ${f1(y + 2)} v${f1(s * 1.05)}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2"/>`;
+  // what each trading post's power looks like on its tile (index = post id)
+  function postGlyph(id) {
+    const T = (x, y, t, fs, fill) => `<text x="${x}" y="${y}" text-anchor="middle" font-size="${fs}" font-weight="900" fill="${fill || '#fff'}" stroke="#1a1a22" stroke-width="2" paint-order="stroke">${t}</text>`;
+    const tok = (x, y, k, sc) => `<g transform="translate(${x} ${y}) scale(${sc || 0.16})">${gemShape(k)}</g>`;
+    if (id === 0) return T(54, 40, '+1', 24) + tok(70, 22, 0) + `<path d="M48 52 h28" stroke="#5a4a2a" stroke-width="2"/>` + T(62, 70, 'buy', 13, '#f3ead6');
+    if (id === 1) return tok(44, 22, 1) + tok(58, 22, 1) + T(64, 56, '+1', 24) + tok(72, 40, 3);
+    if (id === 2) return `<circle cx="56" cy="34" r="13" fill="#e2b53a" stroke="#8a6406" stroke-width="2"/>` + T(56, 40, '★', 15, '#fff6d0') + T(82, 42, '=2', 20);
+    if (id === 3) return T(62, 46, '5', 34, '#f0c040');
+    return T(56, 44, '+1', 24) + shield(74, 22, 14, '#d8d2c0');
+  }
+  // one trading post tile (100 x 100): the cards it asks for (and a noble for post 4), its power, the coats placed on it
+  function post(id, coats, cls) {
+    const t = C.POSTS[id];
+    let req = '', y = 5;
+    for (let k = 0; k < 5; k++) {
+      if (!t.req[k]) continue;
+      req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
+        <text x="18" y="${y + 21.5}" text-anchor="middle" font-size="23" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${t.req[k]}</text>`;
+      y += 30.5;
+    }
+    if (t.noble) req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="#7a4a8a" stroke="#3a2040" stroke-width="2"/>
+      <path d="M8 ${y + 21} l3 -11 l5 6 l2 -8 l2 8 l5 -6 l3 11z" fill="#f0c040" stroke="#8a6406" stroke-width="1"/>`;
+    const cs = (coats || []).slice(0, 4).map((c, i) => shield(38 + i * 15, 76, 12, c)).join('');
+    return `<svg class="${cls || 'post'}" viewBox="0 0 100 100" aria-label="Trading post ${id + 1}">
+      <rect x="1" y="1" width="98" height="98" rx="8" fill="#e8dcc0" stroke="#8a7346" stroke-width="2.5"/>
+      <rect x="36" y="6" width="58" height="66" rx="5" fill="#4a5a6e"/>
+      <rect x="38.5" y="8.5" width="53" height="61" rx="4" fill="none" stroke="#e8c76a" stroke-opacity=".5" stroke-width="1.2"/>
+      <text x="90" y="20" text-anchor="end" font-size="11" font-weight="800" fill="#e8c76a">${id + 1}</text>
+      ${postGlyph(id)}${req}${cs}</svg>`;
+  }
+  // the trading posts at a glance for the table's top row (100 x 100): 5 bands, a dot per coat of arms placed
+  // byPost[i] = the colours of the players holding post i
+  function postsMini(byPost, cls) {
+    let s = '';
+    for (let i = 0; i < 5; i++) {
+      const y = 6 + i * 18;
+      s += `<rect x="6" y="${y}" width="88" height="15" rx="3" fill="${i % 2 ? '#d9cba8' : '#e4d7b6'}"/>
+        <text x="14" y="${y + 12}" text-anchor="middle" font-size="12" font-weight="900" fill="#4a3a1a">${i + 1}</text>`;
+      (byPost[i] || []).slice(0, 4).forEach((c, j) => { s += `<circle cx="${32 + j * 17}" cy="${y + 7.5}" r="6.3" fill="${c}" stroke="#2a1a22" stroke-width="1.2"/>`; });
+    }
+    return `<svg class="${cls || 'post'}" viewBox="0 0 100 100" aria-label="Trading posts">
+      <rect x="1" y="1" width="98" height="98" rx="8" fill="#efe3c4" stroke="#8a7346" stroke-width="2.5"/>${s}</svg>`;
+  }
+  // a stronghold: a little tower in a player's colour (24 x 30), with how many stand there when more than one
+  function fort(col, n, cls) {
+    return `<svg class="${cls || 'fort'}" viewBox="0 0 24 30" aria-label="${n || 1} stronghold${n > 1 ? 's' : ''}">
+      <path d="M3 29 V9 H6 V4 H9.5 V8 H14.5 V4 H18 V9 H21 V29 Z" fill="${col}" stroke="#1a1a22" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M3 13 H21" stroke="#1a1a22" stroke-opacity=".45" stroke-width="1.2"/>
+      ${n > 1 ? `<text x="12" y="26" text-anchor="middle" font-size="12" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="1.8" paint-order="stroke">${n}</text>` : `<path d="M10 29 V22 a2 2 0 0 1 4 0 V29" fill="#1a1a22" opacity=".55"/>`}</svg>`;
+  }
+  root.SpArt = { gem, chip, card, back, noble, city, post, postsMini, fort, PAL, LV_COL };
 })(typeof self !== 'undefined' ? self : this);

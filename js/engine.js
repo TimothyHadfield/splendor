@@ -213,7 +213,7 @@
       if (a.rm !== undefined) {
         const f = s.forts[a.rm];
         if (--f.n <= 0) delete s.forts[a.rm];
-        log(s, seat, nm + ' removed ' + s.players[f.seat].name + '’s stronghold');
+        log(s, seat, nm + ' removed ' + (s.players[f.seat].name === 'You' ? 'your' : s.players[f.seat].name + '’s') + ' stronghold');
       } else {
         if (a.from !== undefined) { const f = s.forts[a.from]; if (--f.n <= 0) delete s.forts[a.from]; }
         const f = s.forts[a.id] || (s.forts[a.id] = { seat, n: 0 });
