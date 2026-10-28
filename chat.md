@@ -61,3 +61,9 @@
 - **Built:** points to win 10/15/18/21; Medium reserves, every level jitters; Hard styles; Undo vs computers; Daily; 24 challenges with measured stars; My stats + awards; guided game + Rules sheet; install/offline; spare phone height to your area + card spots; laptop Race panel; two scenes per card level, richer nobles; noble/city/final-round moments; Play again; last move on the your-turn line.
 - **Verified:** engine 37 (2 new, failed first), ladder 8 (failed 2 on old bots), profile 13, fx 13, online 6; pwa-check 18/18 (10 fails on the old build); screenshots 393/320/659×393/1280/1440 in Chromium + 393/1440 WebKit, 0 errors, 0 overflow; one read-only reviewer, 5 of its 10 points fixed.
 - **Open:** real iPhone; reviewer's set-position puzzles, per-seat styles, Expert level, opponents' bonus counts on phones.
+
+## 2026-10-28 — wave 3: modules, speed, videos
+- **Asked** (manager wave-3 brief, Tim: "Just make the games better… variations… links to youtube videos"): Videos in Rules; Trading posts + Strongholds modules (off by default, computers at every level, ladder per module); practical settings; iPhone check.
+- **Built:** engine phases gem / fort / conquer + bot weights per module; Settings "Cities of Splendor modules" + Computer speed; posts tile + sheet, stronghold towers, tap flows; original post / tower art; Rules tabs Posts, Strongholds, Videos (5 links).
+- **Verified:** engine 37, modules 21 (18 failed on the old engine), ladder 10, fx 13, online 6, profile 13; ladders posts 71.5/89.0/74.5, forts 68.0/95.5/87.5, base unchanged. Shots 393/320/659×393/1280/1440 Chromium + 393 WebKit, 0 errors, 0 overflow; WebKit click test of place / remove / free gem / posts sheet / conquest / settings→deal. The click test caught saves on the free-gem step being dropped (fixed).
+- **Open:** modules online on real Firebase; real iPhone.

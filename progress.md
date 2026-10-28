@@ -2,7 +2,7 @@
 
 ## START HERE
 Read order: this file → CLAUDE.md → docs/rules-check.md → docs/ideas.md → chat.md.
-Last updated: 2026-10-27 (improvement pass vs the official app: ladder fix, points-to-win, Hard styles, Undo, Daily, 24 challenges, My stats, guided game + Rules, install/offline, table fill, richer art, key moments; before that 2026-10-21 visibility pass; before that 2026-10-20: first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
+Last updated: 2026-10-28 (wave 3: Trading posts + Strongholds modules, computer speed, Rules videos; before that 2026-10-27 improvement pass vs the official app: ladder fix, points-to-win, Hard styles, Undo, Daily, 24 challenges, My stats, guided game + Rules, install/offline, table fill, richer art, key moments; before that 2026-10-21 visibility pass; before that 2026-10-20: first build + phase 2: online, rules check, ideas, QA, QA fixes, visual design pass; sound & effects; table look @ 4cb5682; edge pass — weird scenarios + 3 table-look gaps).
 Live: https://timothyhadfield.github.io/splendor/ · Repo: https://github.com/TimothyHadfield/splendor
 
 ## Goal right now
@@ -16,6 +16,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 | Cities of Splendor "Cities" variant (3 of 7 double-sided tiles, no nobles) | Done, Settings switch on the setup screen. 4 tests. |
 | Computers Easy / Medium / Hard | Done, measured (10-27), 1,000 two-player games per pair: Hard beats Easy 92.6%, Medium 67.6%; Medium beats Easy 78.8%. Cities: 92.8 / 79.5 / 69.4%. Every level reserves and takes 2 (`tests/ladder.test.js`); no level replays a game identically (60/60 identical replays before, 0/60 after; `tools/ladder.js`). |
 | Improvement pass (10-27) | Points to win 10/15/18/21 (Settings, 15 default, computers play to it); Hard styles (balanced / mixed: noble hunter, big buyer, reserver; each ≥42% vs Hard, ≥58% vs Medium); Undo vs computers (unrated); Daily deal vs Hard (no Undo); 24 challenges with stars from Hard's own runs (`tools/challenges.js` -> `js/challenge-pars.js`); My stats + 11 awards (`_profile`); guided first game + Rules sheet (`_coach`, tabs wrap); install + offline (`_pwa` 1.2.0, `tools/pwa-check.mjs` 18/18, failed 10 on the old build); phone: spare height goes to your area + faint card spots; laptop: Race panel above the log; two original scenes per card level + richer nobles; big noble/city/final-round moments; Play again; your-turn line shows the last move. |
+| Wave 3 (10-28): Cities of Splendor modules | Trading posts and Strongholds, Settings > "Cities of Splendor modules" (Off default, one at a time; Cities variant wins; Daily/challenges/guided game stay base; Play again + online rooms carry it). Engine `s.mod`, phases `gem` / `fort` / `conquer`, `s.pend` order gem → fort → refill → conquest. `tests/modules.test.js` 21 tests (18 failed on the old engine). Ladder per module, 200 games/pair: posts Hard>Med 71.5, Hard>Easy 89.0, Med>Easy 74.5; forts 68.0 / 95.5 / 87.5; base unchanged 71.7 / 94.0 / 76.3; base + Cities bot moves identical to before on 120 games. UI: posts tile beside nobles (tap = sheet), towers on cards, supply in your corner, tap to place / knock off / move, conquest Buy/Skip. Click-tested in WebKit (place, remove, free gem, posts sheet, conquest, settings → deal). Also: Computer speed (Slow/Normal/Fast), Rules tabs Posts / Strongholds / Videos (5 oEmbed-checked YouTube links). |
 | Turns-to-afford badges, Hint ("what Hard would do and why") | Done. Turns-to-afford matches brute force on 300 cases. |
 | Cards tab: 90 cards sorted by points per gem / cheapest / win rate; nobles; 14 cities; measured notes | Done. First player wins 44.7% of Hard-vs-Hard games; 28.2 rounds average. |
 | Study tab: % matched Hard, points lost, points race, per-move table | Done. Online games now feed the points race too. |
@@ -100,6 +101,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Computers don't move while the page is in the background; they continue when you return.
 - 10-27: Medium = level-3-only reserving + small jitter (blocking made Hard vs Medium too close, 62%); Hard jitter 0.03; styles apply to Hard only; Elo ratings Easy 1200 / Medium 1430 / Hard 1600.
 - 10-27: Undo built because the improvement brief ordered it (it was parked as "not in the real game"); it takes back your whole last move and the computers' replies.
+- 10-28 modules: one at a time; the free-gem step and the stronghold step are required when possible; conquest is optional; all posts met are placed in one turn; computers get per-module weights (`MOD_W` in bots.js).
 - 10-27: challenge stars: 2 = Hard's 80th-percentile turns, 3 = Hard's best quarter and ≥2 turns quicker; a Hint caps at 1 star.
 
 ## NOT verified
@@ -111,8 +113,9 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Online room across two real devices (two headless browsers only).
 - Visibility pass: SE (320 px) still below the 12 px floor (cost digits 9.3 px, gem piles 34x33 tap size); SE landscape still cramped (opponents' gem colours hidden there); 5-colour cities 7.6 px numbers on phones; your own bought-card bands stay small (counts on the front card carry the info). Not seen on a real iPhone.
 - 10-27 pass: install to home screen and offline only in headless WebKit (pwa-check), not on a real iPhone; challenge pars from 80 Hard runs each (c15 only just passes at 20%); Daily streak across real days; reviewer's remaining asks (set-position puzzles, per-seat style choice, an Expert level, opponents' bonus counts on phones) not built.
+- Modules (10-28): not played online on real Firebase (options pass-through tested by code reading + node only); moving a stronghold while you still have some in supply is engine-only (the UI places from supply; moving is offered once your supply is empty); turns badges still show on cards another player holds; no real iPhone.
 - City tile numbers: match the rulebook's 3 printed examples + 3 data sets (lecodex, hexanome JSON, CSV); not checked against a physical tile.
 
 ## Rejected / parked
-- ~~Trading Posts, Strongholds, The Orient modules~~ parked: bigger rule sets, not asked for; data was found.
+- ~~The Orient module~~ parked: needs 30 extra cards with special powers; Trading posts and Strongholds were built 10-28 (wave 3 brief).
 - (Undo was parked as "not in the real game"; built 10-27 vs computers only, per the improvement brief.)
