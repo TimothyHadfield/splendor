@@ -568,7 +568,7 @@
     if (!SC || !tour || table || ui.online || ui.tab !== 'play' || COACH.offered(SC.ID)) return;
     setTimeout(() => {
       if (table || ui.online || ui.tab !== 'play' || modalOpen()) return;
-      COACH.offer({ id: SC.ID, title: 'New to Splendor?', text: 'Play one guided game against the Easy computer.', yes: 'Teach me', no: 'No thanks', onYes: startTutorial });
+      COACH.offer({ id: SC.ID, title: 'New to Splendor?', text: 'Play one guided game against the Easy computer.', yes: 'Teach me', no: 'No thanks', onYes: startTutorial, place: 'auto', avoid: ['#deal'] });
     }, 600);
   }
   // ---- Challenges (js/challenges.js + js/challenge-pars.js): set deals with a goal and stars
