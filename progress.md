@@ -41,7 +41,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - Common brief: $0, no copyrighted art or rulebook text, no page scroll on main screens, bottom tabs on phone, "?" explains why, choices in Settings.
 
 ## Traps
-- **Kits re-copied 2026-10-27 (kitfix):** game-coach 1.1.0 (rules tabs wrap instead of scrolling sideways; a note beside a tall target keeps title + 2 lines + buttons) and game-pwa 1.3.0 (`data-extra` on the pwa.js tag caches files loaded later by script). Copies stay byte-identical to `../_coach` / `../_pwa`.
+- **Kits re-copied 2026-10-28 (wave 3 sweep):** game-coach 1.2.0 (first-visit offer `place:'auto'` + `avoid: ['#deal']`) and game-pwa 1.4.0; pwa data-version 15. Copies stay byte-identical to `../_coach` / `../_pwa`.
 - **online.js cache stamp (2026-10-27):** every import of `js/online.js` uses `?v=a3d0418b`, the `_online` content stamp. After a re-copy: put the new stamp from `node ../_online/tools/stamp.mjs` there, bump the importing file's `?v=` (and pwa.js `data-version`), then `node ../_online/tools/stamp.mjs --check .` must say OK.
 - Kit copies (never edit here, `-text` in .gitattributes): `js/profile.js` + `css/profile.css` (`_profile`), `js/coach.js` + `css/coach.css` (`_coach`), `js/pwa.js` + `sw.js` (`_pwa` 1.2.0). Game-side glue: `js/spprofile.js`, `js/spcoach.js`, `js/challenges.js`. The coach rules tabs wrap via an override in index.html (`.coach-rules .coach-rules-nav`).
 - Bump pwa.js `data-version` with the other `?v=` tags. `tests/pwa-check.json` drives `window.__sp` (test hook at the end of app.js).

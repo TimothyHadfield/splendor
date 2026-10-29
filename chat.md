@@ -67,3 +67,6 @@
 - **Built:** engine phases gem / fort / conquer + bot weights per module; Settings "Cities of Splendor modules" + Computer speed; posts tile + sheet, stronghold towers, tap flows; original post / tower art; Rules tabs Posts, Strongholds, Videos (5 links).
 - **Verified:** engine 37, modules 21 (18 failed on the old engine), ladder 10, fx 13, online 6, profile 13; ladders posts 71.5/89.0/74.5, forts 68.0/95.5/87.5, base unchanged. Shots 393/320/659×393/1280/1440 Chromium + 393 WebKit, 0 errors, 0 overflow; WebKit click test of place / remove / free gem / posts sheet / conquest / settings→deal. The click test caught saves on the free-gem step being dropped (fixed).
 - **Open:** modules online on real Firebase; real iPhone.
+
+## 2026-10-28 — wave 3 kit sweep (builder b3)
+- Kits game-coach 1.2.0 (offer `place:'auto'`, avoid `#deal`) + game-pwa 1.4.0; coach ?v=3, pwa data-version 15, app ?v=14. Verified: 6 suites green, pwa-check 18/18, offer clear of tab bar and Deal at 393x659/320x568/659x393 (WebKit, fresh storage), settings 320 sw=cw=320, select already themed. Commit 0791ee2, live.
