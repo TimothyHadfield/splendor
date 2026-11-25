@@ -15,6 +15,7 @@
   // how long a computer "thinks" before its move (Settings: Computer speed); Normal is the old fixed 750 ms
   const BOT_SPEED = { slow: 1300, normal: 750, fast: 300 };
   const botMs = () => BOT_SPEED[store.settings.botSpeed] || 750;
+  const FINALE_MS = 4500, FINALE_FAST = 2500; // the winning play on the table before the results
   // the Cities of Splendor modules (one at a time; the Cities variant wins over them)
   const modOn = () => (E.MODS.indexOf(store.settings.module) >= 0 ? store.settings.module : undefined);
   const MOD_NAME = { posts: 'Trading posts', forts: 'Strongholds' };
@@ -820,7 +821,15 @@
     if (prev) sfx(prev, v, seat, ui.wasMy, myTurn, ui.tab === 'play');
     ui.prev = v; ui.prevSeat = seat; ui.wasMy = myTurn;
     scheduleBot();
-    if (v.over && !ui.endShown) { ui.endShown = true; setTimeout(() => { if (ui.tab === 'play') showEnd(v, seat); else ui.endShown = false; }, 900); }
+    // the last play stays on the table a few seconds with the winner's seat glowing, then the results
+    // (the Catan lesson, Tim 2026-11-25: "it instantly ends")
+    if (v.over) v.result.winners.forEach(w => { const el = $(w === seat ? '#me-box' : '#chip-' + w); if (el && ui.finaleUntil > Date.now()) el.classList.add('won'); });
+    if (v.over && !ui.endShown) {
+      ui.endShown = true;
+      const ms = prev && !prev.over ? (store.settings.botSpeed === 'fast' ? FINALE_FAST : FINALE_MS) : 900;
+      if (ms > 900) { ui.finaleUntil = Date.now() + ms; v.result.winners.forEach(w => { const el = $(w === seat ? '#me-box' : '#chip-' + w); if (el) el.classList.add('won'); }); }
+      setTimeout(() => { ui.finaleUntil = 0; document.querySelectorAll('.won').forEach(el => el.classList.remove('won')); if (ui.tab === 'play') showEnd(v, seat); else ui.endShown = false; }, ms);
+    }
     if (!v.over) ui.endShown = false;
   }
 
@@ -1340,10 +1349,15 @@
     if (tour && table && !table.online && table.g.tutorial) tour.stop();
     store.game = null; table = null; ui.prev = null; save(); renderPlay();
   }
+  // the cards each player still held in hand when it ended, blind reserves turned face up (the view shows them once it's over)
+  function heldRow(p) {
+    const r = (p.reserved || []).filter(x => x.id !== null);
+    return r.length ? '<div class="end-held"><span class="muted small">Held</span>' + r.map(x => '<span class="eh">' + Art.card(x.id) + '</span>').join('') + '</div>' : '';
+  }
   function showEnd(v, seat) {
     if (!v.result) return;
     const order = v.result.scores.slice().sort((a, b) => b.points - a.points || a.cards - b.cards);
-    const rows = order.map(s => '<div class="end-row' + (v.result.winners.indexOf(s.seat) >= 0 ? ' win' : '') + '"><span class="dot" style="width:10px;height:10px;border-radius:50%;background:' + SEAT_COL[s.seat] + '"></span><span class="grow">' + esc(v.players[s.seat].name) + '</span><b>' + s.points + '</b><span class="muted small">' + s.cards + ' cards</span></div>').join('');
+    const rows = order.map(s => '<div class="end-row' + (v.result.winners.indexOf(s.seat) >= 0 ? ' win' : '') + '"><span class="dot" style="width:10px;height:10px;border-radius:50%;background:' + SEAT_COL[s.seat] + '"></span><span class="grow">' + esc(v.players[s.seat].name) + '</span><b>' + s.points + '</b><span class="muted small">' + s.cards + ' cards</span></div>' + heldRow(v.players[s.seat])).join('');
     const rec = ui.study.rec.filter(r => r.seat === seat);
     const matched = rec.length ? Math.round(100 * rec.filter(r => r.same).length / rec.length) : null;
     // what this game did for you: challenge stars, rating, awards

@@ -102,6 +102,7 @@ efficiency table, hints and a Study screen. Built; waiting on Tim's feedback.
 - 10-27: Medium = level-3-only reserving + small jitter (blocking made Hard vs Medium too close, 62%); Hard jitter 0.03; styles apply to Hard only; Elo ratings Easy 1200 / Medium 1430 / Hard 1600.
 - 10-27: Undo built because the improvement brief ordered it (it was parked as "not in the real game"); it takes back your whole last move and the computers' replies.
 - 10-28 modules: one at a time; the free-gem step and the stronghold step are required when possible; conquest is optional; all posts met are placed in one turn; computers get per-module weights (`MOD_W` in bots.js).
+- 11-25 (Catan lessons): the end waits 4.5 s (2.5 s on Fast computers) on the table with the winner's seat glowing gold before the results sheet; the results sheet shows each player's still-held reserved cards face up (blind ones too; the engine view reveals them only once it's over). Already fine: random first player, no page scroll, 750 ms computer moves. Verified: full 3-player game vs Hard in headless WebKit at 393x659 and 1280x720, 0 errors.
 - 10-27: challenge stars: 2 = Hard's 80th-percentile turns, 3 = Hard's best quarter and ≥2 turns quicker; a Hint caps at 1 star.
 
 ## NOT verified
