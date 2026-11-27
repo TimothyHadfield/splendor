@@ -171,6 +171,16 @@
   .market { grid-area: market; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; min-height: 0; }
   .mrow { display: flex; gap: 5px; min-height: 0; justify-content: center; align-items: center; }
   .market .slot { height: var(--ch, 100%); }
+  /* tall phones (fitMarket adds .dtop): the three decks stand in a row above the cards, four cards to a row.
+     12 thin columns: a card spans 3, a deck 4, so the decks sit centred over the four cards */
+  .market.dtop { grid-template-rows: none; grid-auto-rows: auto; grid-template-columns: repeat(12, calc((var(--ch) * 100 / 140 + 6px) / 3));
+    justify-content: center; align-content: center; column-gap: 0; }
+  .market.dtop .mrow { display: contents; }
+  .market.dtop .mrow > .slot { grid-column: span 3; justify-self: center; }
+  .market.dtop .mrow > .slot:first-child { grid-row: 1; grid-column: span 4; height: var(--dh); }
+  .market.dtop .mrow:nth-child(1) > .slot:not(:first-child) { grid-row: 2; }
+  .market.dtop .mrow:nth-child(2) > .slot:not(:first-child) { grid-row: 3; }
+  .market.dtop .mrow:nth-child(3) > .slot:not(:first-child) { grid-row: 4; }
   .slot { position: relative; height: 100%; aspect-ratio: 100 / 140; flex: none; cursor: pointer; border-radius: 9% / 6.4%; transition: transform .14s ease, box-shadow .14s; }
   .slot svg.card { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)) drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
   .slot.deck { box-shadow: var(--stack); }
@@ -585,6 +595,10 @@
     .bank .side { font-size: 0; } .bank .side .q { font-size: 12px; }
     .status { align-self: start; }
   }
+  /* tall phones held upright: bigger nobles too (they shrink back if five don't fit the row) */
+  @media (max-width: 899px) and (min-height: 760px) and (orientation: portrait) {
+    .nobles { height: 58px; } .nobles .noble { width: 58px; }
+  }
   /* small phone on its side (iPhone SE: 568 x 320) */
   @media (max-height: 360px) and (min-width: 560px) and (max-width: 899px) {
     /* too short for the opponents in the right column: they go back across the whole far edge */
@@ -628,7 +642,7 @@
 <script src="js/spcoach.js?v=4"></script>
 <script src="js/challenges.js?v=2"></script>
 <script src="js/challenge-pars.js?v=2"></script>
-<script src="js/pwa.js?v=16" data-version="17"></script>
-<script src="js/app.js?v=16"></script>
+<script src="js/pwa.js?v=16" data-version="18"></script>
+<script src="js/app.js?v=17"></script>
 </body>
 </html>

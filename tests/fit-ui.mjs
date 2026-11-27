@@ -1,6 +1,7 @@
 // Fit check (2026-11-27, Tim: "the cards on splendor are really small and the numbers are hard to see"):
 // a crowded late game (4 players, everyone's cards out, you hold 3 reserved) and a 2-player late game, in Safari's
-// engine (WebKit) at 393x659, 320x568, 659x393 (phone on its side), 1280x800 and 1440x900. Every number that
+// engine (WebKit) at 393x659, 320x568, 659x393 (phone on its side), taller phones 393x852 / 390x844 / 430x932
+// (no empty band: the cards take the height), 1280x800 and 1440x900. Every number that
 // matters (card costs and points, noble needs, bank counts, your gems and bonuses, opponents' counts) must draw at
 // >= 12 px, the market must use the room it has, and nothing may scroll the page or spill out of the screen.
 // Run: node tests/fit-ui.mjs [--shots <dir>]   (Playwright from ~/.claude/tools/node_modules; FIT_PORT, default any free port)
@@ -34,6 +35,10 @@ const SIZES = [
   { id: 'p393', w: 393, h: 659, mobile: true },
   { id: 'p320', w: 320, h: 568, mobile: true },
   { id: 'l659', w: 659, h: 393, mobile: true },
+  // taller phones: the cards must take the extra height (no empty band under the market)
+  { id: 't393', w: 393, h: 852, mobile: true, tall: true },
+  { id: 't390', w: 390, h: 844, mobile: true, tall: true },
+  { id: 't430', w: 430, h: 932, mobile: true, tall: true },
   { id: 'd1280', w: 1280, h: 800, mobile: false },
   { id: 'd1440', w: 1440, h: 900, mobile: false },
 ];
@@ -71,7 +76,11 @@ function measure() {
     bankPx: minOf('.bank .tok:not(.zero) .n', fs), tok: toks.length ? Math.round(toks[0].width) + 'x' + Math.round(toks[0].height) : null,
     myGemHidden: hidden, myGemPx: minOf('.me .htok:not(.zero) b', fs), myBonusPx: minOf('.me .ccol .cn', fs), myPtsPx: minOf('.mine-info b', fs),
     oppCardPx: minOf('.seat .ccol .cn', fs), oppGemPx: minOf('.seat .og:not(.zero) b, .seat .gtot', fs), oppPtsPx: minOf('.plate .pts', fs), oppHandPx: minOf('.seat .hand-ph .hn', fs),
-    spareW: Math.round(Math.max(left - m.left, m.right - right)), spareH: Math.round(m.bottom - bottom + (top - m.top)), marketW: Math.round(m.width), marketH: Math.round(m.height),
+    spareW: Math.round(Math.max(left - m.left, m.right - right)), spareH: (() => { // the market's height not covered by a row of cards or decks (bands above, between and under them)
+      const iv = all.map(r => [Math.max(r.top, m.top), Math.min(r.bottom, m.bottom)]).sort((a, b) => a[0] - b[0]), merged = [];
+      iv.forEach(([a, b]) => { const l = merged[merged.length - 1]; if (l && a <= l[1] + 1) l[1] = Math.max(l[1], b); else merged.push([a, b]); });
+      const rg = parseFloat(getComputedStyle(document.querySelector('.market')).rowGap) || 0;
+      return Math.round(m.height - merged.reduce((s, [a, b]) => s + b - a, 0) - (merged.length - 1) * rg); })(), marketW: Math.round(m.width), marketH: Math.round(m.height),
     scrollX: document.documentElement.scrollWidth > vw + 1, scrollY: document.scrollingElement.scrollTop > 0 || document.documentElement.scrollHeight > vh + 1,
     out, parts: ['.status', '.nobles', '.market', '.bank', '.me', '.acts', 'nav.tabs'].map(box).join(' '),
   };
@@ -101,6 +110,7 @@ try {
       // the cards fill the market: no strip of bare wood wider than a card beside them, nor a band taller than a third of one under them
       const [cw, chh] = (r.card || '0x0').split('x').map(Number);
       if (r.spareW > cw * 0.6) bad('bare wood beside the cards (px)', r.spareW + ' (card ' + r.card + ')');
+      if (sz.tall && r.spareH > Math.max(12, chh * 0.15)) bad('tall phone: empty band in the market (px)', r.spareH + ' (card ' + r.card + ')');
       if (r.spareH > chh * 0.5) bad('bare wood under/over the cards (px)', r.spareH + ' (card ' + r.card + ')');
       if (r.myGemHidden) bad('your gem counts covered', r.myGemHidden);
       if (r.scrollX || r.scrollY) bad('page scroll', JSON.stringify({ x: r.scrollX, y: r.scrollY }));

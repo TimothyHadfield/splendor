@@ -846,19 +846,29 @@
       const room = g.clientWidth - side.offsetWidth - (bk ? bk.offsetWidth : 0) - (nb ? nb.offsetWidth : 0) - 7 * 14;
       w = (room - 4 * gap) / 5;
     }
-    const ch = Math.max(40, Math.floor(Math.min(h, w * 1.4)));
-    m.style.setProperty('--ch', ch + 'px');
-    // tall phone: the cards are as big as the width allows, so give the spare height to your own cards and gems
-    // (instead of an empty band of wood between the bank and your edge of the table)
+    // tall phone: when the cards are width-bound, the three decks move to a row of their own above the cards (each
+    // still in its level colour) so four cards share each row and grow into the height; what height is left after
+    // that goes to your own cards and gems (instead of an empty band of wood between the bank and your edge)
     if (g && !(side && side.offsetWidth) && innerHeight > innerWidth) {
       const was = g.classList.contains('grow') ? parseFloat(g.style.getPropertyValue('--mex')) || 0 : 0;
-      // measured against the width-bound card height (not ch, which an earlier grow may already have squeezed)
-      const spare = (m.clientHeight - 3 * Math.floor(w * 1.4) - 2 * gap) + was;
-      const mex = Math.max(0, Math.min(70, Math.floor(spare - 6)));
+      const H0 = m.clientHeight + was; // the market's height before any of it went to your area
+      const DH = 0.5; // the deck row's height, as a share of a card's
+      const chA = Math.floor(Math.min((H0 - 2 * gap) / 3, w * 1.4));
+      const chB = Math.floor(Math.min((H0 - 3 * gap) / (3 + DH), (m.clientWidth - 24) / 4 * 1.4)); // (6 px between cards: see .market.dtop)
+      const top = chB > chA + 4;
+      const ch = Math.max(40, top ? chB : chA);
+      const need = top ? Math.ceil(ch * (3 + DH) + 3 * gap) : 3 * ch + 2 * gap;
+      const mex = Math.max(0, Math.min(70, Math.floor(H0 - need - 6)));
+      m.classList.toggle('dtop', top);
+      m.style.setProperty('--ch', ch + 'px');
+      m.style.setProperty('--dh', Math.floor(ch * DH) + 'px');
       if (mex >= 8) { g.classList.add('grow'); g.style.setProperty('--mex', mex + 'px'); }
       else { g.classList.remove('grow'); g.style.removeProperty('--mex'); }
-      if (mex !== was) { const h2 = (m.clientHeight - 2 * gap) / 3; m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h2, w * 1.4))) + 'px'); }
-    } else if (g) { g.classList.remove('grow'); g.style.removeProperty('--mex'); }
+      return;
+    }
+    m.classList.remove('dtop');
+    m.style.setProperty('--ch', Math.max(40, Math.floor(Math.min(h, w * 1.4))) + 'px');
+    if (g) { g.classList.remove('grow'); g.style.removeProperty('--mex'); }
   }
   window.addEventListener('resize', fitMarket);
   // ---- table pieces (real-looking cards, chips and stacks; original art)
