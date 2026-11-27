@@ -852,7 +852,8 @@
     // (instead of an empty band of wood between the bank and your edge of the table)
     if (g && !(side && side.offsetWidth) && innerHeight > innerWidth) {
       const was = g.classList.contains('grow') ? parseFloat(g.style.getPropertyValue('--mex')) || 0 : 0;
-      const spare = (m.clientHeight - 3 * ch - 2 * gap) + was;
+      // measured against the width-bound card height (not ch, which an earlier grow may already have squeezed)
+      const spare = (m.clientHeight - 3 * Math.floor(w * 1.4) - 2 * gap) + was;
       const mex = Math.max(0, Math.min(70, Math.floor(spare - 6)));
       if (mex >= 8) { g.classList.add('grow'); g.style.setProperty('--mex', mex + 'px'); }
       else { g.classList.remove('grow'); g.style.removeProperty('--mex'); }

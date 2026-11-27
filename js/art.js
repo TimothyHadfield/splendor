@@ -197,8 +197,9 @@
     let costs = '', y = 136;
     for (let k = 4; k >= 0; k--) {
       if (!c.cost[k]) continue;
-      costs += `<circle cx="16" cy="${y - 13}" r="13" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
-        <text x="16" y="${y - 6.6}" text-anchor="middle" font-size="19" font-weight="850" fill="${k === 0 ? '#222' : '#fff'}" stroke="${k === 0 ? 'none' : 'rgba(0,0,0,.5)'}" stroke-width=".7">${c.cost[k]}</text>`;
+      // (fit pass 11-27: digits 19 -> 24 of 140, so a phone-sized card's costs draw at 14-15 px)
+      costs += `<circle cx="16" cy="${y - 13}" r="14" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
+        <text x="16" y="${y - 4.4}" text-anchor="middle" font-size="24" font-weight="850" fill="${k === 0 ? '#222' : '#fff'}" stroke="${k === 0 ? 'none' : 'rgba(0,0,0,.5)'}" stroke-width=".7">${c.cost[k]}</text>`;
       y -= 26.5;
     }
     return `<svg class="${cls || 'card'}" viewBox="0 0 100 140" aria-label="Level ${c.level} ${C.COLORS[c.bonus]} card, ${c.points} points">
@@ -236,7 +237,7 @@
     for (let k = 0; k < 5; k++) {
       if (!n.req[k]) continue;
       req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
-        <text x="18" y="${y + 21.5}" text-anchor="middle" font-size="23" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${n.req[k]}</text>`;
+        <text x="18" y="${y + 23.6}" text-anchor="middle" font-size="27" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${n.req[k]}</text>`;
       y += 30.5;
     }
     const hue = ['#7a4a8a', '#3d6a8a', '#8a5a3a', '#4a7a5a', '#8a3d4f'][nid % 5];
@@ -265,7 +266,7 @@
       <path d="M61 51 q3 2 6 0" stroke="#a0604a" stroke-width="1" fill="none"/>
       <path d="M51 32 l4 -10 l5 7 l4 -9 l4 9 l5 -7 l4 10 z" fill="#f0c040" stroke="#8a6406" stroke-width="1.2"/>
       <circle cx="64" cy="22.5" r="1.8" fill="#de3f4a"/><circle cx="55.5" cy="25" r="1.2" fill="#3b7ddd"/><circle cx="72.5" cy="25" r="1.2" fill="#25a065"/>
-      <text x="90" y="24" text-anchor="end" font-size="22" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="2.2" paint-order="stroke">3</text>
+      <text x="91" y="27" text-anchor="end" font-size="27" font-weight="900" fill="#fff" stroke="#1a1a22" stroke-width="2.4" paint-order="stroke">3</text>
       ${req}</svg>`;
   }
   // city tile (Cities variant): prestige needed + bonuses needed; grey squares = "any one colour" / "one other colour"
@@ -312,7 +313,7 @@
     for (let k = 0; k < 5; k++) {
       if (!t.req[k]) continue;
       req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="${PAL[k][0]}" stroke="${PAL[k][3]}" stroke-width="2"/>
-        <text x="18" y="${y + 21.5}" text-anchor="middle" font-size="23" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${t.req[k]}</text>`;
+        <text x="18" y="${y + 23.6}" text-anchor="middle" font-size="27" font-weight="900" fill="${k === 0 ? '#222' : '#fff'}">${t.req[k]}</text>`;
       y += 30.5;
     }
     if (t.noble) req += `<rect x="4" y="${y}" width="28" height="28" rx="4" fill="#7a4a8a" stroke="#3a2040" stroke-width="2"/>

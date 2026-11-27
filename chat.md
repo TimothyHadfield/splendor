@@ -70,3 +70,9 @@
 
 ## 2026-10-28 — wave 3 kit sweep (builder b3)
 - Kits game-coach 1.2.0 (offer `place:'auto'`, avoid `#deal`) + game-pwa 1.4.0; coach ?v=3, pwa data-version 15, app ?v=14. Verified: 6 suites green, pwa-check 18/18, offer clear of tab bar and Deal at 393x659/320x568/659x393 (WebKit, fresh storage), settings 320 sw=cw=320, select already themed. Commit 0791ee2, live.
+
+## 2026-11-27 — fit pass (builder)
+- **Asked** (Tim via manager): "the cards on splendor are really small and the numbers are hard to see ... make sure the user can actually see the full screen and everything".
+- **Built:** card cost digits 19 -> 24 of 140 (circles r 14), noble needs + points 23/22 -> 27; held cards 58 -> 76 px tall on phones (overlap keeps each card's points and costs showing); bank / bonus / opponent counts >= 12 px; phone nobles 42 -> 46; SE 4 px thinner margins; landscape: chips no longer under the bonus counts; fitMarket grow fixes (stale ch feedback; `.me` 100 vs 90 base). Files `index.html`, `js/art.js`, `js/app.js`; new `tests/fit-ui.mjs` + `tests/fit-state.js`.
+- **Verified:** fit-ui (WebKit, 4p + 2p late games x 393x659/320x568/659x393/1280x800/1440x900): 45 fails on old main, 0 now. Engine 37, online 6, fx 13, modules 21, profile 13, ladder 10, pwa-check 18/18. Shots looked at.
+- **Open:** cards themselves barely grow at 393 (height-bound: 63x88 -> 62x86); real iPhone.
